@@ -110,6 +110,10 @@ func (me *filePieceImpl) checkCompleteFileSizes() (c Completion) {
 	for i, extent := range me.iterFileSegments() {
 		file := me.t.file(i)
 		file.mu.RLock()
+		if file.released {
+			file.mu.RUnlock()
+			continue
+		}
 		s, err := os.Stat(file.safeOsPath)
 		if me.partFiles() && errors.Is(err, fs.ErrNotExist) {
 			// Can we use shared files for this? Is it faster?
@@ -341,6 +345,12 @@ func (me *filePieceImpl) writeFileTo(w io.Writer, fileIndex int, extent segments
 		return
 	}
 	file := me.t.file(fileIndex)
+	file.mu.RLock()
+	released := file.released
+	file.mu.RUnlock()
+	if released {
+		return me.writeReleasedFileTo(w, file, extent)
+	}
 	// Do we want io.WriterTo here, or are we happy to let that be type asserted in io.CopyN?
 	var f fileReader
 	f, err = me.t.openFile(file)
@@ -379,6 +389,22 @@ func (me *filePieceImpl) writeFileTo(w io.Writer, fileIndex int, extent segments
 	n1, err := f.writeToN(w, extentRemaining)
 	packageExpvarMap.Add("bytesReadNotSkipped", n1)
 	written += n1
+	return
+}
+
+func (me *filePieceImpl) writeReleasedFileTo(w io.Writer, file file, extent segments.Extent) (written int64, err error) {
+	f, err := os.Open(file.releasedPiecePath(me.p.Index()))
+	if errors.Is(err, fs.ErrNotExist) {
+		written, err = writeZeroes(w, extent.Length)
+		packageExpvarMap.Add("bytesReadReleasedMissing", written)
+		return
+	}
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	written, err = io.CopyN(w, f, extent.Length)
+	packageExpvarMap.Add("bytesReadReleased", written)
 	return
 }
 

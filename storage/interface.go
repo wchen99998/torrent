@@ -39,6 +39,11 @@ type TorrentImpl struct {
 
 	NewReader      func() TorrentReader
 	NewPieceReader func(p Piece) PieceReader
+
+	// MarkFileReleased records that the file at this torrent file index was
+	// completed and intentionally removed from storage by the caller. File
+	// storage uses this to preserve piece completion for handed-off files.
+	MarkFileReleased func(fileIndex int) error
 }
 
 // Interacts with torrent piece data. Optional interfaces to implement include://

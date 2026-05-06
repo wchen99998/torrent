@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -88,10 +89,20 @@ type fileExtra struct {
 	mu sync.RWMutex
 	// The safe, OS-local file path.
 	safeOsPath string
+	// The file was completed and intentionally removed from storage by the caller.
+	released bool
 	// Utility value to help the race detector find issues for us.
 	race byte
 }
 
 func (f *fileExtra) partFilePath() string {
 	return f.safeOsPath + ".part"
+}
+
+func (f *fileExtra) releasedFilePath() string {
+	return f.safeOsPath + ".released"
+}
+
+func (f *fileExtra) releasedPiecePath(pieceIndex int) string {
+	return fmt.Sprintf("%s.released.%d", f.safeOsPath, pieceIndex)
 }

@@ -13,6 +13,7 @@ import (
 // Provides access to regions of torrent data that correspond to its files.
 type File struct {
 	t           *Torrent
+	index       int
 	path        string
 	offset      int64
 	length      int64
@@ -28,6 +29,24 @@ func (f *File) String() string {
 
 func (f *File) Torrent() *Torrent {
 	return f.t
+}
+
+// ReleaseStorage records that this file has been completed and intentionally
+// removed from the torrent storage by the caller.
+func (f *File) ReleaseStorage() error {
+	f.t.storageLock.RLock()
+	storage := f.t.storage
+	f.t.storageLock.RUnlock()
+	if storage == nil {
+		return errTorrentClosed
+	}
+	if err := storage.MarkFileReleased(f.index); err != nil {
+		return err
+	}
+	for p := range f.Pieces() {
+		p.UpdateCompletion()
+	}
+	return nil
 }
 
 // Data for this file begins this many bytes into the Torrent.

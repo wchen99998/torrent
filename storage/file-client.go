@@ -30,7 +30,10 @@ type NewFileClientOpts struct {
 	// startup, and keep the rest in memory.
 	PieceCompletion PieceCompletion
 	UsePartFiles    g.Option[bool]
-	Logger          *slog.Logger
+	// ForceClassicFileIO disables mmap-backed file IO for callers that move or
+	// remove completed files while a torrent remains active.
+	ForceClassicFileIO bool
+	Logger             *slog.Logger
 }
 
 // The specific part-files option or the default.
@@ -102,9 +105,10 @@ func (fs *fileClientImpl) OpenTorrent(
 		metainfoFileInfos,
 		info.FileSegmentsIndex(),
 		infoHash,
-		defaultFileIo(),
+		fs.newFileIo(),
 		fs,
 	}
+	t.loadReleasedFileMarkers()
 	if t.partFiles() {
 		err = t.setCompletionFromPartFiles()
 		if err != nil {
@@ -113,7 +117,15 @@ func (fs *fileClientImpl) OpenTorrent(
 		}
 	}
 	return TorrentImpl{
-		Piece: t.Piece,
-		Close: t.Close,
+		Piece:            t.Piece,
+		Close:            t.Close,
+		MarkFileReleased: t.markFileReleased,
 	}, nil
+}
+
+func (fs *fileClientImpl) newFileIo() fileIo {
+	if fs.opts.ForceClassicFileIO {
+		return classicFileIo{}
+	}
+	return defaultFileIo()
 }

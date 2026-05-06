@@ -13,6 +13,19 @@ func NewFileByInfoHash(baseDir string) ClientImplCloser {
 	return NewFileWithCustomPathMaker(baseDir, infoHashPathMaker)
 }
 
+// NewFileByInfoHashForStreaming stores data by infohash using classic file IO
+// and supports ReleaseStorage on torrent files. It is intended for consumers
+// that hand off completed files and remove them while the torrent remains
+// active.
+func NewFileByInfoHashForStreaming(baseDir string) ClientImplCloser {
+	return NewFileOpts(NewFileClientOpts{
+		ClientBaseDir:      baseDir,
+		TorrentDirMaker:    infoHashPathMaker,
+		PieceCompletion:    pieceCompletionForDir(baseDir),
+		ForceClassicFileIO: true,
+	})
+}
+
 // Deprecated: Allows passing a function to determine the path for storing torrent data. The
 // function is responsible for sanitizing the info if it uses some part of it (for example
 // sanitizing info.Name).

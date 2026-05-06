@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/anacrolix/missinggo/v2"
 	"github.com/anacrolix/missinggo/v2/panicif"
@@ -45,11 +46,110 @@ func (me *fileTorrentImpl) setPieceCompletion(p int, complete bool) error {
 	return me.pieceCompletion().Set(me.pieceCompletionKey(p), complete)
 }
 
+func (me *fileTorrentImpl) markFileReleased(fileIndex int) error {
+	if fileIndex < 0 || fileIndex >= len(me.files) {
+		return fmt.Errorf("file index %d out of range", fileIndex)
+	}
+	f := me.file(fileIndex)
+	if err := me.writeReleasedBoundaryPieces(fileIndex, f); err != nil {
+		return err
+	}
+	f.mu.Lock()
+	f.released = true
+	if err := os.MkdirAll(filepath.Dir(f.releasedFilePath()), dirPerm); err != nil {
+		f.mu.Unlock()
+		return err
+	}
+	marker, err := os.OpenFile(f.releasedFilePath(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, filePerm)
+	if err != nil {
+		f.mu.Unlock()
+		return err
+	}
+	err = marker.Close()
+	f.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	for pieceIndex := f.beginPieceIndex(); pieceIndex < f.endPieceIndex(); pieceIndex++ {
+		if err := me.setPieceCompletion(pieceIndex, true); err != nil {
+			return fmt.Errorf("setting released file piece %d complete: %w", pieceIndex, err)
+		}
+	}
+	return nil
+}
+
+func (me *fileTorrentImpl) writeReleasedBoundaryPieces(fileIndex int, f file) error {
+	for pieceIndex := f.beginPieceIndex(); pieceIndex < f.endPieceIndex(); pieceIndex++ {
+		piece := me.info.Piece(pieceIndex)
+		pieceExtent := segments.Extent{Start: piece.Offset(), Length: piece.Length()}
+		var fileExtent segments.Extent
+		fileSegments := 0
+		foundFile := false
+		for i, extent := range me.segmentLocater.LocateIter(pieceExtent) {
+			fileSegments++
+			if i == fileIndex {
+				fileExtent = extent
+				foundFile = true
+			}
+		}
+		if !foundFile || fileSegments <= 1 {
+			continue
+		}
+		if err := me.writeReleasedBoundaryPiece(f, pieceIndex, fileExtent); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (me *fileTorrentImpl) writeReleasedBoundaryPiece(f file, pieceIndex int, extent segments.Extent) error {
+	sourcePath := f.safeOsPath
+	if me.partFiles() {
+		if _, err := os.Stat(sourcePath); errors.Is(err, fs.ErrNotExist) {
+			sourcePath = f.partFilePath()
+		}
+	}
+	in, err := os.Open(sourcePath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("opening released file boundary source %q: %w", sourcePath, err)
+	}
+	defer in.Close()
+	if _, err := in.Seek(extent.Start, io.SeekStart); err != nil {
+		return fmt.Errorf("seeking released file boundary %q: %w", sourcePath, err)
+	}
+	outPath := f.releasedPiecePath(pieceIndex)
+	if err := os.MkdirAll(filepath.Dir(outPath), dirPerm); err != nil {
+		return err
+	}
+	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, filePerm)
+	if err != nil {
+		return fmt.Errorf("creating released file boundary %q: %w", outPath, err)
+	}
+	written, copyErr := io.CopyN(out, in, extent.Length)
+	closeErr := out.Close()
+	if copyErr != nil {
+		return fmt.Errorf("copying released file boundary %q: wrote %d/%d: %w", sourcePath, written, extent.Length, copyErr)
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return nil
+}
+
 // Set piece completions based on whether all files in each piece are not .part files.
 func (me *fileTorrentImpl) setCompletionFromPartFiles() error {
 	notComplete := make([]bool, me.info.NumPieces())
 	for fileIndex := range me.files {
 		f := me.file(fileIndex)
+		f.mu.RLock()
+		released := f.released
+		f.mu.RUnlock()
+		if released {
+			continue
+		}
 		fi, err := os.Stat(f.safeOsPath)
 		if err == nil {
 			if fi.Size() == f.length() {
@@ -120,6 +220,17 @@ func (me *fileTorrentImpl) file(index int) file {
 		Info:      me.info,
 		FileInfo:  &me.metainfoFileInfos[index],
 		fileExtra: &me.files[index],
+	}
+}
+
+func (me *fileTorrentImpl) loadReleasedFileMarkers() {
+	for i := range me.files {
+		f := me.file(i)
+		if _, err := os.Stat(f.releasedFilePath()); err == nil {
+			f.mu.Lock()
+			f.released = true
+			f.mu.Unlock()
+		}
 	}
 }
 
