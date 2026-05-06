@@ -190,6 +190,12 @@ func (me *filePieceImpl) MarkComplete() (err error) {
 		if !res.Ok {
 			continue
 		}
+		f.mu.RLock()
+		released := f.released
+		f.mu.RUnlock()
+		if released {
+			continue
+		}
 		err = me.promotePartFile(f)
 		if err != nil {
 			err = fmt.Errorf("error promoting part file %q: %w", f.safeOsPath, err)

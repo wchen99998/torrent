@@ -44,6 +44,33 @@ func TestShortFile(t *testing.T) {
 	}
 }
 
+func TestClassicFileReaderStopsAtExtentWithoutShortWrite(t *testing.T) {
+	td := t.TempDir()
+	s := NewFileOpts(NewFileClientOpts{
+		ClientBaseDir:      td,
+		UsePartFiles:       g.Some(false),
+		ForceClassicFileIO: true,
+	})
+	defer s.Close()
+	info := &metainfo.Info{
+		Name:        "a",
+		Length:      8,
+		PieceLength: 4,
+		Pieces:      make([]byte, 40),
+	}
+	ts, err := s.OpenTorrent(context.Background(), info, metainfo.Hash{})
+	qt.Assert(t, qt.IsNil(err))
+	defer ts.Close()
+	qt.Assert(t, qt.IsNil(os.WriteFile(filepath.Join(td, "a"), []byte("abcdefgh"), 0o666)))
+
+	var buf bytes.Buffer
+	p := info.Piece(0)
+	n, err := (Piece{ts.Piece(p), p}).WriteTo(&buf)
+	qt.Check(t, qt.Equals(n, int64(4)))
+	qt.Check(t, qt.IsNil(err))
+	qt.Check(t, qt.DeepEquals(buf.Bytes(), []byte("abcd")))
+}
+
 func TestReleasedFileRemainsCompleteAfterRemoval(t *testing.T) {
 	td := t.TempDir()
 	info := &metainfo.Info{
