@@ -36,6 +36,32 @@ func TestClientDefault(t *testing.T) {
 	require.Empty(t, cl.Close())
 }
 
+func TestDisableInitialPieceCheckTreatsUnknownPiecesAsIncomplete(t *testing.T) {
+	cfg := TestingConfig(t)
+	cfg.DefaultStorage = storage.NewFileWithCompletion(t.TempDir(), storage.NewMapPieceCompletion())
+	cl, err := NewClient(cfg)
+	require.NoError(t, err)
+	defer cl.Close()
+
+	spec := TorrentSpecFromMetaInfo(testutil.GreetingMetaInfo())
+	spec.DisableInitialPieceCheck = true
+	tt, _, err := cl.AddTorrentSpec(spec)
+	require.NoError(t, err)
+	<-tt.GotInfo()
+
+	for _, f := range tt.Files() {
+		f.SetPriority(PiecePriorityNone)
+	}
+	tt.Files()[0].SetPriority(PiecePriorityHigh)
+
+	cl.rLock()
+	pendingPieces := tt._pendingPieces.GetCardinality()
+	storageCompletionOk := tt.piece(0).storageCompletionOk
+	cl.rUnlock()
+	qt.Check(t, qt.Equals(pendingPieces, uint64(tt.NumPieces())))
+	qt.Check(t, qt.IsTrue(storageCompletionOk))
+}
+
 func TestClientNilConfig(t *testing.T) {
 	// The default config will put crap in the working directory.
 	origDir, _ := os.Getwd()

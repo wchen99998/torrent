@@ -2,6 +2,7 @@ package requestStrategy
 
 import (
 	"bytes"
+	"math"
 
 	"github.com/anacrolix/multiless"
 
@@ -18,6 +19,13 @@ type (
 	ChunkSpec = types.ChunkSpec
 )
 
+func availabilityForOrder(availability int) int {
+	if availability == 0 {
+		return math.MaxInt
+	}
+	return availability
+}
+
 // Piece request ordering factoring in storage limits, user-assigned priority, network availability.
 // Is it missing the random piece affinity assigned per torrent? Can we do that deterministically
 // per-client?
@@ -31,7 +39,7 @@ func pieceOrderLess(i, j *PieceRequestOrderItem) multiless.Computation {
 		// If this is done with relative availability, do we lose some determinism? If completeness
 		// is used, would that push this far enough down? What happens if we have a piece in the
 		// order, but it has availability 0?
-		i.State.Availability, j.State.Availability,
+		availabilityForOrder(i.State.Availability), availabilityForOrder(j.State.Availability),
 	).Int(
 		i.Key.Index, j.Key.Index,
 	).Lazy(func() multiless.Computation {

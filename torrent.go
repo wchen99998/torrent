@@ -1774,6 +1774,9 @@ func (t *Torrent) setPieceCompletionFromStorage(piece pieceIndex) bool {
 
 func (t *Torrent) setInitialPieceCompletionFromStorage(piece pieceIndex) {
 	t.setCachedPieceCompletionFromStorage(piece)
+	if t.initialPieceCheckDisabled && !t.piece(piece).storageCompletionOk {
+		t.setCachedPieceCompletion(piece, g.Some(false))
+	}
 	t.afterSetPieceCompletion(piece, true)
 }
 
