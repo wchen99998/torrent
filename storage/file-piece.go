@@ -401,8 +401,7 @@ func (me *filePieceImpl) writeFileTo(w io.Writer, fileIndex int, extent segments
 func (me *filePieceImpl) writeReleasedFileTo(w io.Writer, file file, extent segments.Extent) (written int64, err error) {
 	f, err := os.Open(file.releasedPiecePath(me.p.Index()))
 	if errors.Is(err, fs.ErrNotExist) {
-		written, err = writeZeroes(w, extent.Length)
-		packageExpvarMap.Add("bytesReadReleasedMissing", written)
+		err = ErrFileReleased
 		return
 	}
 	if err != nil {

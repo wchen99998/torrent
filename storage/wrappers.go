@@ -42,6 +42,13 @@ func (t *Torrent) MarkFileReleased(fileIndex int) error {
 	return t.TorrentImpl.MarkFileReleased(fileIndex)
 }
 
+func (t *Torrent) MarkFileDiscarded(fileIndex int) error {
+	if t.TorrentImpl.MarkFileDiscarded == nil {
+		return fmt.Errorf("storage does not support discarded files")
+	}
+	return t.TorrentImpl.MarkFileDiscarded(fileIndex)
+}
+
 // Deprecated. Use PieceWithHash, as this doesn't work with pure v2 torrents.
 func (t *Torrent) Piece(p metainfo.Piece) Piece {
 	return t.PieceWithHash(p, g.Some(p.V1Hash().Unwrap().Bytes()))

@@ -15,8 +15,7 @@ func NewFileByInfoHash(baseDir string) ClientImplCloser {
 
 // NewFileByInfoHashForStreaming stores data by infohash using classic file IO
 // and supports ReleaseStorage on torrent files. It is intended for consumers
-// that hand off completed files and remove them while the torrent remains
-// active.
+// that hand off completed files while the torrent remains active.
 func NewFileByInfoHashForStreaming(baseDir string) ClientImplCloser {
 	return NewFileOpts(NewFileClientOpts{
 		ClientBaseDir:      baseDir,

@@ -77,6 +77,13 @@ func (me *mmapFileIo) rename(from, to string) (err error) {
 	return os.Rename(from, to)
 }
 
+func (me *mmapFileIo) remove(name string) error {
+	me.mu.Lock()
+	defer me.mu.Unlock()
+	me.closeName(name)
+	return os.Remove(name)
+}
+
 func (me *mmapFileIo) closeName(name string) {
 	v, ok := me.paths[name]
 	if ok {

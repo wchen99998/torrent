@@ -29,6 +29,7 @@ type fileIo interface {
 	openForWrite(name string, size int64) (fileWriter, error)
 	flush(name string, offset, nbytes int64) error
 	rename(from, to string) error
+	remove(name string) error
 }
 
 type sharableReader interface {

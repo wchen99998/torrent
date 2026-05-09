@@ -1,10 +1,18 @@
 package torrent
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/RoaringBitmap/roaring/v2"
+	g "github.com/anacrolix/generics"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/anacrolix/torrent/metainfo"
+	"github.com/anacrolix/torrent/storage"
 )
 
 func TestFileExclusivePieces(t *testing.T) {
@@ -20,6 +28,115 @@ func TestFileExclusivePieces(t *testing.T) {
 		assert.EqualValues(t, _case.begin, begin)
 		assert.EqualValues(t, _case.end, end)
 	}
+}
+
+func TestFileReleaseStorageRemovesFile(t *testing.T) {
+	dir := t.TempDir()
+	cfg := TestingConfig(t)
+	cfg.DataDir = dir
+	cfg.DefaultStorage = storage.NewFileOpts(storage.NewFileClientOpts{
+		ClientBaseDir:      dir,
+		UsePartFiles:       g.Some(false),
+		ForceClassicFileIO: true,
+	})
+	cl, err := NewClient(cfg)
+	require.NoError(t, err)
+	defer cl.Close()
+	tor, new := cl.AddTorrentOpt(AddTorrentOpts{
+		InfoHash:                 testingTorrentInfoHash,
+		DisableInitialPieceCheck: true,
+	})
+	require.True(t, new)
+	require.NoError(t, tor.setInfoUnlocked(&metainfo.Info{
+		Name:        "payload",
+		Length:      4,
+		PieceLength: 4,
+		Pieces:      make([]byte, metainfo.HashSize),
+	}))
+	path := filepath.Join(dir, "payload")
+	require.NoError(t, os.WriteFile(path, []byte("data"), 0o666))
+
+	require.NoError(t, tor.Files()[0].ReleaseStorage())
+
+	_, err = os.Stat(path)
+	assert.True(t, errors.Is(err, os.ErrNotExist), "expected released file to be removed, got %v", err)
+}
+
+func TestFileDiscardStorageRemovesFileAndMarksIncomplete(t *testing.T) {
+	dir := t.TempDir()
+	cfg := TestingConfig(t)
+	cfg.DataDir = dir
+	cfg.DefaultStorage = storage.NewFileOpts(storage.NewFileClientOpts{
+		ClientBaseDir:      dir,
+		UsePartFiles:       g.Some(false),
+		ForceClassicFileIO: true,
+	})
+	cl, err := NewClient(cfg)
+	require.NoError(t, err)
+	defer cl.Close()
+	tor, new := cl.AddTorrentOpt(AddTorrentOpts{
+		InfoHash:                 testingTorrentInfoHash,
+		DisableInitialPieceCheck: true,
+	})
+	require.True(t, new)
+	require.NoError(t, tor.setInfoUnlocked(&metainfo.Info{
+		Name:        "payload",
+		Length:      4,
+		PieceLength: 4,
+		Pieces:      make([]byte, metainfo.HashSize),
+	}))
+	path := filepath.Join(dir, "payload")
+	p := tor.piece(0).Storage()
+	_, err = p.WriteAt([]byte("data"), 0)
+	require.NoError(t, err)
+	require.NoError(t, p.MarkComplete())
+	tor.piece(0).UpdateCompletion()
+	require.True(t, tor.pieceComplete(0))
+
+	require.NoError(t, tor.Files()[0].DiscardStorage())
+
+	_, err = os.Stat(path)
+	assert.True(t, errors.Is(err, os.ErrNotExist), "expected discarded file to be removed, got %v", err)
+	assert.False(t, tor.pieceComplete(0))
+}
+
+func TestFileDiscardStorageClearsDirtyChunks(t *testing.T) {
+	dir := t.TempDir()
+	cfg := TestingConfig(t)
+	cfg.DataDir = dir
+	cfg.DefaultStorage = storage.NewFileOpts(storage.NewFileClientOpts{
+		ClientBaseDir:      dir,
+		UsePartFiles:       g.Some(false),
+		ForceClassicFileIO: true,
+	})
+	cl, err := NewClient(cfg)
+	require.NoError(t, err)
+	defer cl.Close()
+	tor, new := cl.AddTorrentOpt(AddTorrentOpts{
+		InfoHash:                 testingTorrentInfoHash,
+		DisableInitialPieceCheck: true,
+	})
+	require.True(t, new)
+	tor.setChunkSize(2)
+	require.NoError(t, tor.setInfoUnlocked(&metainfo.Info{
+		Name:        "payload",
+		Length:      4,
+		PieceLength: 4,
+		Pieces:      make([]byte, metainfo.HashSize),
+	}))
+	p := tor.piece(0).Storage()
+	_, err = p.WriteAt([]byte("da"), 0)
+	require.NoError(t, err)
+	tor.cl.lock()
+	tor.dirtyChunks.Add(tor.pieceRequestIndexBegin(0))
+	require.True(t, tor.piece(0).hasDirtyChunks())
+	tor.cl.unlock()
+
+	require.NoError(t, tor.Files()[0].DiscardStorage())
+
+	tor.cl.lock()
+	assert.False(t, tor.piece(0).hasDirtyChunks())
+	tor.cl.unlock()
 }
 
 type testFileBytesLeft struct {

@@ -31,8 +31,8 @@ func (f *File) Torrent() *Torrent {
 	return f.t
 }
 
-// ReleaseStorage records that this file has been completed and intentionally
-// removed from the torrent storage by the caller.
+// ReleaseStorage releases storage for a file that has been completed and handed
+// off to the caller.
 func (f *File) ReleaseStorage() error {
 	f.t.storageLock.RLock()
 	storage := f.t.storage
@@ -46,6 +46,27 @@ func (f *File) ReleaseStorage() error {
 	for p := range f.Pieces() {
 		p.UpdateCompletion()
 	}
+	return nil
+}
+
+// DiscardStorage releases storage for a file without preserving completion.
+// Affected pieces are marked incomplete so future reads can request them again.
+func (f *File) DiscardStorage() error {
+	f.t.storageLock.RLock()
+	storage := f.t.storage
+	f.t.storageLock.RUnlock()
+	if storage == nil {
+		return errTorrentClosed
+	}
+	if err := storage.MarkFileDiscarded(f.index); err != nil {
+		return err
+	}
+	f.t.cl.lock()
+	for i := range f.PieceIndices() {
+		f.t.pendAllChunkSpecs(i)
+		f.t.updatePieceCompletion(i)
+	}
+	f.t.cl.unlock()
 	return nil
 }
 

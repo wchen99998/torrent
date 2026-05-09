@@ -16,6 +16,10 @@ func (me classicFileIo) rename(from, to string) error {
 	return os.Rename(from, to)
 }
 
+func (me classicFileIo) remove(name string) error {
+	return os.Remove(name)
+}
+
 func (me classicFileIo) flush(name string, offset, nbytes int64) error {
 	return fsync(name)
 }

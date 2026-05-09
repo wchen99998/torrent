@@ -11,6 +11,7 @@ All notable changes to [anacrolix/torrent](https://github.com/anacrolix/torrent)
 - Use a heap in `Client.startPieceHashers`
 - Batch torrent input updates by doing them in the dispatcher
 - Close shared readers when storage is closed
+- Support releasing streamed files from file storage while retaining shared boundary piece data
 - Use `InsteadOf` and various other indexed improvements to manage announce overdue
 
 ## [v1.61.0] - 2025-12-17

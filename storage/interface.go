@@ -2,12 +2,15 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	g "github.com/anacrolix/generics"
 
 	"github.com/anacrolix/torrent/metainfo"
 )
+
+var ErrFileReleased = errors.New("torrent file storage was released")
 
 type ClientImplCloser interface {
 	ClientImpl
@@ -40,10 +43,13 @@ type TorrentImpl struct {
 	NewReader      func() TorrentReader
 	NewPieceReader func(p Piece) PieceReader
 
-	// MarkFileReleased records that the file at this torrent file index was
-	// completed and intentionally removed from storage by the caller. File
-	// storage uses this to preserve piece completion for handed-off files.
+	// MarkFileReleased releases storage for the file at this torrent file
+	// index. File storage uses this to preserve piece completion for
+	// handed-off files.
 	MarkFileReleased func(fileIndex int) error
+	// MarkFileDiscarded releases storage for the file at this torrent file
+	// index and marks affected pieces incomplete.
+	MarkFileDiscarded func(fileIndex int) error
 }
 
 // Interacts with torrent piece data. Optional interfaces to implement include://
