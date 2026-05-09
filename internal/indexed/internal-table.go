@@ -5,7 +5,7 @@ import (
 
 	g "github.com/anacrolix/generics"
 	"github.com/anacrolix/missinggo/v2/panicif"
-	"github.com/anacrolix/torrent/internal/amortize"
+	"github.com/wchen99998/torrent/internal/amortize"
 )
 
 type table[R Record] struct {

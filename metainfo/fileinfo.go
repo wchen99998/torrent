@@ -5,7 +5,7 @@ import (
 
 	g "github.com/anacrolix/generics"
 
-	infohash_v2 "github.com/anacrolix/torrent/types/infohash-v2"
+	infohash_v2 "github.com/wchen99998/torrent/types/infohash-v2"
 )
 
 // Information specific to a single file inside the MetaInfo structure.

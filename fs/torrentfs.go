@@ -33,7 +33,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/anacrolix/torrent"
+	"github.com/wchen99998/torrent"
 )
 
 // TorrentFS is the shared state for a torrent-backed filesystem.

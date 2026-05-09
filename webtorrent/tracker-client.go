@@ -16,8 +16,8 @@ import (
 	"github.com/pion/webrtc/v4"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/anacrolix/torrent/tracker"
-	"github.com/anacrolix/torrent/types/infohash"
+	"github.com/wchen99998/torrent/tracker"
+	"github.com/wchen99998/torrent/types/infohash"
 )
 
 type TrackerClientStats struct {
@@ -35,7 +35,7 @@ type TrackerClient struct {
 	// Deprecated: Use Slogger.
 	Logger  log.Logger
 	Slogger *slog.Logger
-	Dialer             *websocket.Dialer
+	Dialer  *websocket.Dialer
 
 	mu             sync.Mutex
 	cond           sync.Cond

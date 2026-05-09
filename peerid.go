@@ -1,5 +1,5 @@
 package torrent
 
-import "github.com/anacrolix/torrent/types"
+import "github.com/wchen99998/torrent/types"
 
 type PeerID = types.PeerID

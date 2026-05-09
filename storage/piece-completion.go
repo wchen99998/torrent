@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/types/infohash"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/types/infohash"
 )
 
 type PieceCompletionGetSetter interface {

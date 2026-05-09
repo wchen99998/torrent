@@ -1,6 +1,6 @@
 package torrent
 
-import typedRoaring "github.com/anacrolix/torrent/typed-roaring"
+import typedRoaring "github.com/wchen99998/torrent/typed-roaring"
 
 // Return the number of bits set in the range. To do this we need the rank of the item before the
 // first, and the rank of the last item. An off-by-one minefield. Hopefully I haven't missed
@@ -8,4 +8,4 @@ import typedRoaring "github.com/anacrolix/torrent/typed-roaring"
 func roaringBitmapRangeCardinality[T typedRoaring.BitConstraint](bm interface{ RangeCardinality(T, T) uint64 }, start, end T) (card uint64) {
 	card = bm.RangeCardinality(start, end)
 	return
-} 
+}

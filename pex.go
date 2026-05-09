@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	pp "github.com/anacrolix/torrent/peer_protocol"
+	pp "github.com/wchen99998/torrent/peer_protocol"
 )
 
 type pexEventType int

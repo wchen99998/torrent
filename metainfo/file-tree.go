@@ -7,8 +7,8 @@ import (
 
 	g "github.com/anacrolix/generics"
 
-	"github.com/anacrolix/torrent/bencode"
-	infohash_v2 "github.com/anacrolix/torrent/types/infohash-v2"
+	"github.com/wchen99998/torrent/bencode"
+	infohash_v2 "github.com/wchen99998/torrent/types/infohash-v2"
 )
 
 const FileTreePropertiesKey = ""

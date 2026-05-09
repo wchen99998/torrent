@@ -19,7 +19,7 @@ import (
 	"github.com/anacrolix/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/anacrolix/torrent/internal/testutil"
+	"github.com/wchen99998/torrent/internal/testutil"
 )
 
 func TestMultiInfohash(t *testing.T) {

@@ -8,9 +8,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/bencode"
-	"github.com/anacrolix/torrent/metainfo"
+	"github.com/wchen99998/torrent"
+	"github.com/wchen99998/torrent/bencode"
+	"github.com/wchen99998/torrent/metainfo"
 )
 
 func main() {

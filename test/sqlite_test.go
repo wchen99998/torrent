@@ -14,10 +14,10 @@ import (
 
 	qt "github.com/go-quicktest/qt"
 
-	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/bencode"
-	"github.com/anacrolix/torrent/metainfo"
-	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
+	"github.com/wchen99998/torrent"
+	"github.com/wchen99998/torrent/bencode"
+	"github.com/wchen99998/torrent/metainfo"
+	sqliteStorage "github.com/wchen99998/torrent/storage/sqlite"
 )
 
 func TestSqliteStorageClosed(t *testing.T) {

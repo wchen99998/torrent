@@ -8,7 +8,7 @@ import (
 	"io"
 
 	"github.com/anacrolix/missinggo/v2"
-	"github.com/anacrolix/torrent"
+	"github.com/wchen99998/torrent"
 )
 
 // ErrDestroyed is returned by ReadFile when the filesystem has been destroyed.

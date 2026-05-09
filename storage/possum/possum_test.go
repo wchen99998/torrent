@@ -11,8 +11,8 @@ import (
 	possumResource "github.com/anacrolix/possum/go/resource"
 	_ "github.com/anacrolix/possum/go/testlink"
 
-	"github.com/anacrolix/torrent/storage"
-	test_storage "github.com/anacrolix/torrent/storage/test"
+	"github.com/wchen99998/torrent/storage"
+	test_storage "github.com/wchen99998/torrent/storage/test"
 )
 
 // This should be made to mirror the benchmarks for sqlite storage.

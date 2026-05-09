@@ -13,9 +13,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v4"
 
-	"github.com/anacrolix/torrent/tracker"
-	httpTracker "github.com/anacrolix/torrent/tracker/http"
-	"github.com/anacrolix/torrent/webtorrent"
+	"github.com/wchen99998/torrent/tracker"
+	httpTracker "github.com/wchen99998/torrent/tracker/http"
+	"github.com/wchen99998/torrent/webtorrent"
 )
 
 type websocketTrackerStatus struct {
@@ -76,12 +76,12 @@ func (me *websocketTrackers) Get(url string, infoHash [20]byte) (*webtorrent.Tra
 		}
 		value = &refCountedWebtorrentTrackerClient{
 			TrackerClient: webtorrent.TrackerClient{
-				Dialer:             dialer,
-				Url:                url,
-				GetAnnounceRequest: me.GetAnnounceRequest,
-				PeerId:             me.PeerId,
-				OnConn:             me.OnConn,
-				Slogger: me.slogger().With("trackerClientUrl", url),
+				Dialer:                     dialer,
+				Url:                        url,
+				GetAnnounceRequest:         me.GetAnnounceRequest,
+				PeerId:                     me.PeerId,
+				OnConn:                     me.OnConn,
+				Slogger:                    me.slogger().With("trackerClientUrl", url),
 				WebsocketTrackerHttpHeader: me.WebsocketTrackerHttpHeader,
 				ICEServers:                 me.ICEServers,
 				OnConnected: func(err error) {

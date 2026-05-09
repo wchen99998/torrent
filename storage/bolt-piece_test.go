@@ -3,8 +3,8 @@ package storage_test
 import (
 	"testing"
 
-	"github.com/anacrolix/torrent/storage"
-	"github.com/anacrolix/torrent/test"
+	"github.com/wchen99998/torrent/storage"
+	"github.com/wchen99998/torrent/test"
 )
 
 func TestBoltLeecherStorage(t *testing.T) {

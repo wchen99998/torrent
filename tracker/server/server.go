@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"github.com/anacrolix/generics"
-	"github.com/anacrolix/torrent/types/infohash"
+	"github.com/wchen99998/torrent/types/infohash"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/anacrolix/torrent/tracker"
-	"github.com/anacrolix/torrent/tracker/udp"
+	"github.com/wchen99998/torrent/tracker"
+	"github.com/wchen99998/torrent/tracker/udp"
 )
 
 // This is reserved for stuff like filtering by IP version, avoiding an announcer's IP or key,

@@ -14,7 +14,7 @@ import (
 	sqlite "github.com/go-llsqlite/adapter"
 	"github.com/go-llsqlite/adapter/sqlitex"
 
-	"github.com/anacrolix/torrent/metainfo"
+	"github.com/wchen99998/torrent/metainfo"
 )
 
 // sqlite is always the default when available.

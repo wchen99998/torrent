@@ -5,9 +5,9 @@ import (
 
 	qt "github.com/go-quicktest/qt"
 
-	"github.com/anacrolix/torrent/bencode"
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/types/infohash"
+	"github.com/wchen99998/torrent/bencode"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/types/infohash"
 )
 
 type scrapeResponse struct {

@@ -11,8 +11,8 @@ import (
 
 	"github.com/anacrolix/missinggo/v2/panicif"
 
-	"github.com/anacrolix/torrent/internal/ctxrw"
-	"github.com/anacrolix/torrent/metainfo"
+	"github.com/wchen99998/torrent/internal/ctxrw"
+	"github.com/wchen99998/torrent/metainfo"
 )
 
 type ExtensionBit uint

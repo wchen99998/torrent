@@ -5,8 +5,8 @@ import (
 	"testing"
 	"unique"
 
-	"github.com/anacrolix/torrent/metainfo"
 	"github.com/bradfitz/iter"
+	"github.com/wchen99998/torrent/metainfo"
 )
 
 type testInput struct {

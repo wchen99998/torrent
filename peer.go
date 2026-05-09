@@ -18,9 +18,9 @@ import (
 	"github.com/anacrolix/missinggo/v2/panicif"
 	"github.com/anacrolix/multiless"
 
-	"github.com/anacrolix/torrent/mse"
-	pp "github.com/anacrolix/torrent/peer_protocol"
-	typedRoaring "github.com/anacrolix/torrent/typed-roaring"
+	"github.com/wchen99998/torrent/mse"
+	pp "github.com/wchen99998/torrent/peer_protocol"
+	typedRoaring "github.com/wchen99998/torrent/typed-roaring"
 )
 
 type (

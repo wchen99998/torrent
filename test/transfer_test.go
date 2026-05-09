@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 
-	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/internal/testutil"
-	"github.com/anacrolix/torrent/storage"
+	"github.com/wchen99998/torrent"
+	"github.com/wchen99998/torrent/internal/testutil"
+	"github.com/wchen99998/torrent/storage"
 )
 
 type fileCacheClientStorageFactoryParams struct {

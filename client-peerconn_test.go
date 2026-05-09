@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 
-	"github.com/anacrolix/torrent/internal/testutil"
+	"github.com/wchen99998/torrent/internal/testutil"
 )
 
 func TestPeerConnEstablished(t *testing.T) {

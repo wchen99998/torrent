@@ -7,8 +7,8 @@ import (
 	"github.com/anacrolix/dht/v2/krpc"
 	"github.com/stretchr/testify/require"
 
-	pp "github.com/anacrolix/torrent/peer_protocol"
-	"github.com/anacrolix/torrent/storage"
+	pp "github.com/wchen99998/torrent/peer_protocol"
+	"github.com/wchen99998/torrent/storage"
 )
 
 func TestPexConnState(t *testing.T) {

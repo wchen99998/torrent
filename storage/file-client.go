@@ -8,7 +8,7 @@ import (
 
 	g "github.com/anacrolix/generics"
 
-	"github.com/anacrolix/torrent/metainfo"
+	"github.com/wchen99998/torrent/metainfo"
 )
 
 // File-based storage for torrents, that isn't yet bound to a particular torrent.

@@ -17,8 +17,8 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/jessevdk/go-flags"
 
-	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/metainfo"
+	"github.com/wchen99998/torrent"
+	"github.com/wchen99998/torrent/metainfo"
 )
 
 // fmt.Fprintf(os.Stderr, "Usage: %s \n", os.Args[0])

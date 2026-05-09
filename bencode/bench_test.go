@@ -7,7 +7,7 @@ import (
 
 	"github.com/anacrolix/dht/v2/krpc"
 
-	"github.com/anacrolix/torrent/bencode"
+	"github.com/wchen99998/torrent/bencode"
 )
 
 func marshalAndUnmarshal(tb testing.TB, orig krpc.Msg) (ret krpc.Msg) {

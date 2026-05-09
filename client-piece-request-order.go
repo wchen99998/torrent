@@ -1,8 +1,8 @@
 package torrent
 
 import (
-	requestStrategy "github.com/anacrolix/torrent/internal/request-strategy"
-	"github.com/anacrolix/torrent/storage"
+	requestStrategy "github.com/wchen99998/torrent/internal/request-strategy"
+	"github.com/wchen99998/torrent/storage"
 )
 
 // clientPieceRequestOrderKey is a key for the piece request order map in the Client.

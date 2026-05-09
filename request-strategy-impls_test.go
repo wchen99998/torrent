@@ -11,10 +11,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-quicktest/qt"
 
-	requestStrategy "github.com/anacrolix/torrent/internal/request-strategy"
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/storage"
-	infohash_v2 "github.com/anacrolix/torrent/types/infohash-v2"
+	requestStrategy "github.com/wchen99998/torrent/internal/request-strategy"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/storage"
+	infohash_v2 "github.com/wchen99998/torrent/types/infohash-v2"
 )
 
 func makeRequestStrategyPiece(t requestStrategy.Torrent) requestStrategy.Piece {

@@ -19,9 +19,9 @@ import (
 	"github.com/anacrolix/missinggo/v2/panicif"
 	"golang.org/x/net/http2"
 
-	"github.com/anacrolix/torrent/metainfo"
-	pp "github.com/anacrolix/torrent/peer_protocol"
-	"github.com/anacrolix/torrent/webseed"
+	"github.com/wchen99998/torrent/metainfo"
+	pp "github.com/wchen99998/torrent/peer_protocol"
+	"github.com/wchen99998/torrent/webseed"
 )
 
 type webseedPeer struct {

@@ -3,7 +3,7 @@ package metainfo
 import (
 	"fmt"
 
-	"github.com/anacrolix/torrent/merkle"
+	"github.com/wchen99998/torrent/merkle"
 )
 
 func ValidatePieceLayers(

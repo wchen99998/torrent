@@ -9,8 +9,8 @@ import (
 
 	qt "github.com/go-quicktest/qt"
 
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/storage"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/storage"
 )
 
 const (

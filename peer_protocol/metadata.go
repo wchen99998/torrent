@@ -1,7 +1,7 @@
 package peer_protocol
 
 import (
-	"github.com/anacrolix/torrent/bencode"
+	"github.com/wchen99998/torrent/bencode"
 )
 
 const (

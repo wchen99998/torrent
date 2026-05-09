@@ -3,7 +3,7 @@ package httpTracker
 import (
 	"testing"
 
-	"github.com/anacrolix/torrent/bencode"
+	"github.com/wchen99998/torrent/bencode"
 )
 
 func FuzzHttpResponseUnmarshal(f *testing.F) {

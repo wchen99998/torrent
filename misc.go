@@ -9,10 +9,10 @@ import (
 	"github.com/anacrolix/missinggo/v2/panicif"
 	"golang.org/x/time/rate"
 
-	"github.com/anacrolix/torrent/metainfo"
-	pp "github.com/anacrolix/torrent/peer_protocol"
-	"github.com/anacrolix/torrent/types"
-	"github.com/anacrolix/torrent/types/infohash"
+	"github.com/wchen99998/torrent/metainfo"
+	pp "github.com/wchen99998/torrent/peer_protocol"
+	"github.com/wchen99998/torrent/types"
+	"github.com/wchen99998/torrent/types/infohash"
 )
 
 type (

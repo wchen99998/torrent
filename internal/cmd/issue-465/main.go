@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/metainfo"
+	"github.com/wchen99998/torrent"
+	"github.com/wchen99998/torrent/metainfo"
 )
 
 func main() {

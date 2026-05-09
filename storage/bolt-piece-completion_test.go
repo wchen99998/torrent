@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-quicktest/qt"
 
-	"github.com/anacrolix/torrent/metainfo"
+	"github.com/wchen99998/torrent/metainfo"
 )
 
 func TestBoltPieceCompletion(t *testing.T) {

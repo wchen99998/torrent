@@ -6,7 +6,7 @@ package torrent
 import (
 	"testing"
 
-	"github.com/anacrolix/torrent/storage"
+	"github.com/wchen99998/torrent/storage"
 )
 
 func TestEmptyFilesAndZeroPieceLengthWithMMapStorage(t *testing.T) {

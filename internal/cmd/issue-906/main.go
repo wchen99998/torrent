@@ -7,7 +7,7 @@ import (
 
 	_ "github.com/anacrolix/envpprof"
 
-	"github.com/anacrolix/torrent"
+	"github.com/wchen99998/torrent"
 )
 
 func main() {

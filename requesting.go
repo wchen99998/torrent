@@ -15,9 +15,9 @@ import (
 	"github.com/anacrolix/generics/heap"
 	"github.com/anacrolix/multiless"
 
-	requestStrategy "github.com/anacrolix/torrent/internal/request-strategy"
-	"github.com/anacrolix/torrent/metainfo"
-	typedRoaring "github.com/anacrolix/torrent/typed-roaring"
+	requestStrategy "github.com/wchen99998/torrent/internal/request-strategy"
+	"github.com/wchen99998/torrent/metainfo"
+	typedRoaring "github.com/wchen99998/torrent/typed-roaring"
 )
 
 type (

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/anacrolix/torrent/tracker"
 	"github.com/go-quicktest/qt"
+	"github.com/wchen99998/torrent/tracker"
 
-	"github.com/anacrolix/torrent/tracker/shared"
+	"github.com/wchen99998/torrent/tracker/shared"
 )
 
 func TestLazyLogValuer(t *testing.T) {

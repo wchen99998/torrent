@@ -5,8 +5,8 @@ import (
 	"iter"
 
 	g "github.com/anacrolix/generics"
-	"github.com/anacrolix/torrent/internal/amortize"
 	"github.com/google/go-cmp/cmp"
+	"github.com/wchen99998/torrent/internal/amortize"
 )
 
 // Iters from a point, assuming that where can only be true consecutively from that point and

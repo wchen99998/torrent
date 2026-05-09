@@ -8,8 +8,8 @@ import (
 
 	"github.com/anacrolix/missinggo/v2/panicif"
 
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/segments"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/segments"
 )
 
 // Exposes file-based storage of a torrent, as one big ReadWriterAt.

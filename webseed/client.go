@@ -18,8 +18,8 @@ import (
 	"github.com/dustin/go-humanize"
 	"golang.org/x/time/rate"
 
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/segments"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/segments"
 )
 
 // How many consecutive bytes to allow discarding from responses. This number is based on

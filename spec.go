@@ -5,8 +5,8 @@ import (
 
 	g "github.com/anacrolix/generics"
 
-	"github.com/anacrolix/torrent/metainfo"
-	infohash_v2 "github.com/anacrolix/torrent/types/infohash-v2"
+	"github.com/wchen99998/torrent/metainfo"
+	infohash_v2 "github.com/wchen99998/torrent/types/infohash-v2"
 )
 
 // Specifies a new torrent for adding to a client, or additions to an existing Torrent. There are

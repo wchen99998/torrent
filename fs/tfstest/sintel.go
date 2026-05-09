@@ -21,9 +21,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/anacrolix/torrent"
-	torrentfs "github.com/anacrolix/torrent/fs"
-	"github.com/anacrolix/torrent/metainfo"
+	"github.com/wchen99998/torrent"
+	torrentfs "github.com/wchen99998/torrent/fs"
+	"github.com/wchen99998/torrent/metainfo"
 )
 
 // sintelFileHashes are the expected MD5 hashes of files in the Sintel torrent.
@@ -206,7 +206,6 @@ func hasInternetConnectivity() bool {
 	conn.Close()
 	return true
 }
-
 
 type progressWriter struct {
 	onWrite func(n int)

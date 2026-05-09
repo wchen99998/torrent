@@ -1,4 +1,4 @@
-module github.com/anacrolix/torrent
+module github.com/wchen99998/torrent
 
 go 1.24.0
 
@@ -22,6 +22,7 @@ require (
 	github.com/anacrolix/squirrel v0.6.4
 	github.com/anacrolix/sync v0.5.5-0.20251119100342-d78dd1f686f1
 	github.com/anacrolix/tagflag v1.3.0
+	github.com/anacrolix/torrent v1.48.1-0.20230103142631-c20f73d53e9f
 	github.com/anacrolix/upnp v0.1.4
 	github.com/anacrolix/utp v0.1.0
 	github.com/bahlo/generic-list-go v0.2.0
@@ -62,7 +63,6 @@ require (
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
 	github.com/alexflint/go-scalar v1.1.0 // indirect
 	github.com/anacrolix/backtrace v0.0.0-20221205112523-22a61db8f82e // indirect
-	github.com/anacrolix/lsan v0.1.0 // indirect
 	github.com/anacrolix/missinggo/perf v1.0.0 // indirect
 	github.com/anacrolix/mmsg v1.0.1 // indirect
 	github.com/anacrolix/stm v0.5.0 // indirect

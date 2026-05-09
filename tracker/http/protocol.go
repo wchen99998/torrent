@@ -5,7 +5,7 @@ import (
 
 	"github.com/anacrolix/dht/v2/krpc"
 
-	"github.com/anacrolix/torrent/bencode"
+	"github.com/wchen99998/torrent/bencode"
 )
 
 type HttpResponse struct {

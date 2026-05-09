@@ -1,8 +1,8 @@
 package torrent
 
 import (
-	"github.com/anacrolix/torrent/mse"
-	pp "github.com/anacrolix/torrent/peer_protocol"
+	"github.com/wchen99998/torrent/mse"
+	pp "github.com/wchen99998/torrent/peer_protocol"
 )
 
 // These are called synchronously, and do not pass ownership of arguments (do not expect to retain

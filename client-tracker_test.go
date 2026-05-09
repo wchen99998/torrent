@@ -12,8 +12,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
-	"github.com/anacrolix/torrent/internal/testutil"
-	"github.com/anacrolix/torrent/tracker"
+	"github.com/wchen99998/torrent/internal/testutil"
+	"github.com/wchen99998/torrent/tracker"
 )
 
 func TestClientInvalidTracker(t *testing.T) {

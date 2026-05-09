@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/anacrolix/missinggo/v2/panicif"
-	"github.com/anacrolix/torrent/internal/extracmp"
 	"github.com/go-quicktest/qt"
+	"github.com/wchen99998/torrent/internal/extracmp"
 )
 
 type overdueRecord struct {

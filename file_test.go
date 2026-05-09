@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/storage"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/storage"
 )
 
 func TestFileExclusivePieces(t *testing.T) {

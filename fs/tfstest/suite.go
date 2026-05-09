@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/anacrolix/torrent"
-	torrentfs "github.com/anacrolix/torrent/fs"
-	"github.com/anacrolix/torrent/internal/testutil"
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/storage"
+	"github.com/wchen99998/torrent"
+	torrentfs "github.com/wchen99998/torrent/fs"
+	"github.com/wchen99998/torrent/internal/testutil"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/storage"
 )
 
 // MountFunc mounts tfs at mountDir and returns a cleanup/unmount function.

@@ -7,8 +7,8 @@ import (
 
 	"github.com/elliotchance/orderedmap"
 
-	"github.com/anacrolix/torrent"
-	pp "github.com/anacrolix/torrent/peer_protocol"
+	"github.com/wchen99998/torrent"
+	pp "github.com/wchen99998/torrent/peer_protocol"
 )
 
 type peerData struct {

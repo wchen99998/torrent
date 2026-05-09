@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/anacrolix/torrent/bencode"
+	"github.com/wchen99998/torrent/bencode"
 )
 
 func Example() {

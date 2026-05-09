@@ -6,7 +6,7 @@ import (
 
 	g "github.com/anacrolix/generics"
 
-	pp "github.com/anacrolix/torrent/peer_protocol"
+	pp "github.com/wchen99998/torrent/peer_protocol"
 )
 
 type LocalLtepProtocolMap struct {

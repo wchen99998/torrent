@@ -7,7 +7,7 @@ import (
 	"net/netip"
 
 	"github.com/anacrolix/dht/v2/krpc"
-	"github.com/anacrolix/torrent/bencode"
+	"github.com/wchen99998/torrent/bencode"
 )
 
 // TODO: Use netip.Addr and Option[[20]byte].

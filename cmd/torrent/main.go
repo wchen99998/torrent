@@ -21,8 +21,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/anacrolix/torrent/bencode"
-	"github.com/anacrolix/torrent/version"
+	"github.com/wchen99998/torrent/bencode"
+	"github.com/wchen99998/torrent/version"
 )
 
 func init() {

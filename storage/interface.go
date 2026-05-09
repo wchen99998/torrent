@@ -7,7 +7,7 @@ import (
 
 	g "github.com/anacrolix/generics"
 
-	"github.com/anacrolix/torrent/metainfo"
+	"github.com/wchen99998/torrent/metainfo"
 )
 
 var ErrFileReleased = errors.New("torrent file storage was released")

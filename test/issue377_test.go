@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/internal/testutil"
-	"github.com/anacrolix/torrent/metainfo"
-	pp "github.com/anacrolix/torrent/peer_protocol"
-	"github.com/anacrolix/torrent/storage"
+	"github.com/wchen99998/torrent"
+	"github.com/wchen99998/torrent/internal/testutil"
+	"github.com/wchen99998/torrent/metainfo"
+	pp "github.com/wchen99998/torrent/peer_protocol"
+	"github.com/wchen99998/torrent/storage"
 )
 
 func justOneNetwork(cc *torrent.ClientConfig) {

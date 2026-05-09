@@ -4,9 +4,9 @@ import (
 	"encoding"
 
 	"github.com/anacrolix/dht/v2/krpc"
-	"github.com/anacrolix/torrent/tracker/shared"
-	"github.com/anacrolix/torrent/types"
-	"github.com/anacrolix/torrent/types/infohash"
+	"github.com/wchen99998/torrent/tracker/shared"
+	"github.com/wchen99998/torrent/types"
+	"github.com/wchen99998/torrent/types/infohash"
 )
 
 // Marshalled as binary by the UDP client, so be careful making changes.

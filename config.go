@@ -16,12 +16,12 @@ import (
 	"github.com/pion/webrtc/v4"
 	"golang.org/x/time/rate"
 
-	"github.com/anacrolix/torrent/iplist"
-	"github.com/anacrolix/torrent/metainfo"
+	"github.com/wchen99998/torrent/iplist"
+	"github.com/wchen99998/torrent/metainfo"
 
-	"github.com/anacrolix/torrent/mse"
-	"github.com/anacrolix/torrent/storage"
-	"github.com/anacrolix/torrent/version"
+	"github.com/wchen99998/torrent/mse"
+	"github.com/wchen99998/torrent/storage"
+	"github.com/wchen99998/torrent/version"
 )
 
 // Contains config elements that are exclusive to tracker handling. There may be other fields in
@@ -69,8 +69,8 @@ type ClientConfig struct {
 	DataDir string `long:"data-dir" description:"directory to store downloaded torrent data"`
 	// The address to listen for new uTP and TCP BitTorrent protocol connections. DHT shares a UDP
 	// socket with uTP unless configured otherwise.
-	ListenHost              func(network string) string
-	ListenPort              int
+	ListenHost func(network string) string
+	ListenPort int
 	// cfg.NoDefaultPortForwarding aka cfg.DisableUpnp
 	NoDefaultPortForwarding bool
 	UpnpID                  string

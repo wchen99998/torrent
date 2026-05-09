@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/dialer"
+	"github.com/wchen99998/torrent"
+	"github.com/wchen99998/torrent/dialer"
 )
 
 func TestUnixConns(t *testing.T) {

@@ -5,8 +5,8 @@ import (
 
 	"github.com/RoaringBitmap/roaring/v2"
 	g "github.com/anacrolix/generics"
-	"github.com/anacrolix/torrent/internal/amortize"
-	requestStrategy "github.com/anacrolix/torrent/internal/request-strategy"
+	"github.com/wchen99998/torrent/internal/amortize"
+	requestStrategy "github.com/wchen99998/torrent/internal/request-strategy"
 )
 
 // It's probably possible to track whether the piece moves around in the btree to be more efficient

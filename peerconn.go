@@ -25,16 +25,16 @@ import (
 
 	"golang.org/x/time/rate"
 
-	typedRoaring "github.com/anacrolix/torrent/typed-roaring"
+	typedRoaring "github.com/wchen99998/torrent/typed-roaring"
 
-	"github.com/anacrolix/torrent/bencode"
-	requestStrategy "github.com/anacrolix/torrent/internal/request-strategy"
+	"github.com/wchen99998/torrent/bencode"
+	requestStrategy "github.com/wchen99998/torrent/internal/request-strategy"
 
-	"github.com/anacrolix/torrent/merkle"
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/mse"
-	pp "github.com/anacrolix/torrent/peer_protocol"
-	utHolepunch "github.com/anacrolix/torrent/peer_protocol/ut-holepunch"
+	"github.com/wchen99998/torrent/merkle"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/mse"
+	pp "github.com/wchen99998/torrent/peer_protocol"
+	utHolepunch "github.com/wchen99998/torrent/peer_protocol/ut-holepunch"
 )
 
 type PeerStatus struct {

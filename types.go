@@ -1,7 +1,7 @@
 package torrent
 
 import (
-	"github.com/anacrolix/torrent/types/infohash"
+	"github.com/wchen99998/torrent/types/infohash"
 )
 
 type shortInfohash = infohash.T

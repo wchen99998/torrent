@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/anacrolix/torrent/bencode"
-	infohash_v2 "github.com/anacrolix/torrent/types/infohash-v2"
+	"github.com/wchen99998/torrent/bencode"
+	infohash_v2 "github.com/wchen99998/torrent/types/infohash-v2"
 )
 
 // Also known as a torrent file.

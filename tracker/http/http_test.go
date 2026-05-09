@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/anacrolix/torrent/bencode"
-	"github.com/anacrolix/torrent/tracker/udp"
+	"github.com/wchen99998/torrent/bencode"
+	"github.com/wchen99998/torrent/tracker/udp"
 )
 
 func TestUnmarshalHTTPResponsePeerDicts(t *testing.T) {

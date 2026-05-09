@@ -3,9 +3,9 @@ package torrent
 import (
 	g "github.com/anacrolix/generics"
 
-	requestStrategy "github.com/anacrolix/torrent/internal/request-strategy"
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/storage"
+	requestStrategy "github.com/wchen99998/torrent/internal/request-strategy"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/storage"
 )
 
 type requestStrategyInputCommon struct {

@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-quicktest/qt"
 
-	"github.com/anacrolix/torrent/internal/testutil"
+	"github.com/wchen99998/torrent/internal/testutil"
 )
 
 // Tests that the client can download a multi-file torrent from two webseeds simultaneously when

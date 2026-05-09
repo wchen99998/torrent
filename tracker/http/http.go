@@ -15,10 +15,10 @@ import (
 
 	"github.com/anacrolix/missinggo/httptoo"
 
-	"github.com/anacrolix/torrent/bencode"
-	"github.com/anacrolix/torrent/tracker/shared"
-	"github.com/anacrolix/torrent/tracker/udp"
-	"github.com/anacrolix/torrent/version"
+	"github.com/wchen99998/torrent/bencode"
+	"github.com/wchen99998/torrent/tracker/shared"
+	"github.com/wchen99998/torrent/tracker/udp"
+	"github.com/wchen99998/torrent/version"
 )
 
 var vars = expvar.NewMap("tracker/http")

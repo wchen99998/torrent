@@ -12,8 +12,8 @@ import (
 	"github.com/anacrolix/bargle/v2"
 	"github.com/anacrolix/log"
 
-	"github.com/anacrolix/torrent/merkle"
-	"github.com/anacrolix/torrent/metainfo"
+	"github.com/wchen99998/torrent/merkle"
+	"github.com/wchen99998/torrent/metainfo"
 )
 
 func assertOk(err error) {

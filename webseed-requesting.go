@@ -19,12 +19,12 @@ import (
 	g "github.com/anacrolix/generics"
 	"github.com/anacrolix/generics/heap"
 	"github.com/anacrolix/missinggo/v2/panicif"
-	"github.com/anacrolix/torrent/internal/extracmp"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/wchen99998/torrent/internal/extracmp"
 
-	"github.com/anacrolix/torrent/internal/request-strategy"
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/webseed"
+	"github.com/wchen99998/torrent/internal/request-strategy"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/webseed"
 )
 
 // Default is based on experience with CloudFlare.

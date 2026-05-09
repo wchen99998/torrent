@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/anacrolix/torrent/bencode"
+	"github.com/wchen99998/torrent/bencode"
 )
 
 func FuzzPexMsgRoundTrip(f *testing.F) {

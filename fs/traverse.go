@@ -5,7 +5,7 @@ package torrentfs
 import (
 	"strings"
 
-	"github.com/anacrolix/torrent"
+	"github.com/wchen99998/torrent"
 )
 
 // DirEntry describes a single filesystem entry returned by a directory listing.

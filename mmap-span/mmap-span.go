@@ -8,7 +8,7 @@ import (
 
 	"github.com/anacrolix/missinggo/v2/panicif"
 
-	"github.com/anacrolix/torrent/segments"
+	"github.com/wchen99998/torrent/segments"
 )
 
 type Mmap interface {

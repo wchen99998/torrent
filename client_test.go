@@ -23,11 +23,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/anacrolix/torrent/bencode"
-	"github.com/anacrolix/torrent/internal/testutil"
-	"github.com/anacrolix/torrent/iplist"
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/storage"
+	"github.com/wchen99998/torrent/bencode"
+	"github.com/wchen99998/torrent/internal/testutil"
+	"github.com/wchen99998/torrent/iplist"
+	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/storage"
 )
 
 func TestClientDefault(t *testing.T) {
@@ -383,7 +383,9 @@ func TestDhtInheritBlocklist(t *testing.T) {
 	numServers := 0
 	cl.eachDhtServer(func(s DhtServer) {
 		t.Log(s)
-		assert.Equal(t, ipl, s.(AnacrolixDhtServerWrapper).Server.IPBlocklist())
+		blocklist, ok := s.(AnacrolixDhtServerWrapper).Server.IPBlocklist().(dhtIPBlocklist)
+		require.True(t, ok)
+		assert.Equal(t, ipl, blocklist.Ranger)
 		numServers++
 	})
 	qt.Assert(t, qt.Not(qt.Equals(numServers, 0)))

@@ -1,7 +1,7 @@
 package metainfo
 
 import (
-	"github.com/anacrolix/torrent/types/infohash"
+	"github.com/wchen99998/torrent/types/infohash"
 )
 
 // This type has been moved to allow avoiding importing everything in metainfo to get at it.

@@ -1,7 +1,7 @@
 package torrent
 
 import (
-	"github.com/anacrolix/torrent/dialer"
+	"github.com/wchen99998/torrent/dialer"
 )
 
 type (

@@ -20,11 +20,11 @@ import (
 	"github.com/dustin/go-humanize"
 	"golang.org/x/time/rate"
 
-	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/iplist"
-	"github.com/anacrolix/torrent/metainfo"
-	pp "github.com/anacrolix/torrent/peer_protocol"
-	"github.com/anacrolix/torrent/storage"
+	"github.com/wchen99998/torrent"
+	"github.com/wchen99998/torrent/iplist"
+	"github.com/wchen99998/torrent/metainfo"
+	pp "github.com/wchen99998/torrent/peer_protocol"
+	"github.com/wchen99998/torrent/storage"
 )
 
 func clientStatusWriter(ctx context.Context, cl *torrent.Client) {

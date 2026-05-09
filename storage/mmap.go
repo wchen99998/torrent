@@ -14,8 +14,8 @@ import (
 	"github.com/anacrolix/missinggo/v2"
 	"github.com/edsrzf/mmap-go"
 
-	"github.com/anacrolix/torrent/metainfo"
-	mmapSpan "github.com/anacrolix/torrent/mmap-span"
+	"github.com/wchen99998/torrent/metainfo"
+	mmapSpan "github.com/wchen99998/torrent/mmap-span"
 )
 
 type mmapClientImpl struct {
