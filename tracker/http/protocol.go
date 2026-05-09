@@ -69,9 +69,18 @@ func (me *Peers) UnmarshalBencode(b []byte) (err error) {
 	case []interface{}:
 		vars.Add("http responses with list peers", 1)
 		me.Compact = false
-		for _, i := range v {
+		for pos, i := range v {
+			d, ok := i.(map[string]interface{})
+			if !ok {
+				err = fmt.Errorf("unsupported peer entry type at index %d: %T", pos, i)
+				return
+			}
 			var p Peer
-			p.FromDictInterface(i.(map[string]interface{}))
+			err = p.fromDictInterface(d)
+			if err != nil {
+				err = fmt.Errorf("invalid peer entry at index %d: %w", pos, err)
+				return
+			}
 			me.List = append(me.List, p)
 		}
 		return

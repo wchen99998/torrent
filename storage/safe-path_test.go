@@ -47,6 +47,11 @@ func TestToSafeFilePath(t *testing.T) {
 	}
 }
 
+func TestToSafeFilePathRejectsAbsolutePath(t *testing.T) {
+	_, err := ToSafeFilePath(filepath.FromSlash(`/tmp/escape`))
+	qt.Assert(t, qt.Not(qt.IsNil(err)))
+}
+
 // Check that safe file path handling still exists for the newer file-opt-maker variants.
 func TestFileOptsSafeFilePathHandling(t *testing.T) {
 	for i, _case := range safeFilePathTests {

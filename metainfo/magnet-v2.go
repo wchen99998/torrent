@@ -29,15 +29,17 @@ const (
 func (m MagnetV2) String() string {
 	// Deep-copy m.Params
 	vs := make(url.Values, len(m.Params)+len(m.Trackers)+2)
-	for k, v := range m.Params {
-		vs[k] = append([]string(nil), v...)
-	}
 
+	if m.DisplayName != "" {
+		vs.Add("dn", m.DisplayName)
+	}
 	for _, tr := range m.Trackers {
 		vs.Add("tr", tr)
 	}
-	if m.DisplayName != "" {
-		vs.Add("dn", m.DisplayName)
+	for k, values := range m.Params {
+		for _, v := range values {
+			vs.Add(k, v)
+		}
 	}
 
 	// Transmission and Deluge both expect "urn:btih:" to be unescaped. Deluge wants it to be at the

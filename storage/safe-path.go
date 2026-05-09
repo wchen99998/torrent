@@ -16,9 +16,16 @@ func firstComponent(filePath string) string {
 func ToSafeFilePath(fileInfoComponents ...string) (string, error) {
 	safeComps := make([]string, 0, len(fileInfoComponents))
 	for _, comp := range fileInfoComponents {
-		safeComps = append(safeComps, filepath.Clean(comp))
+		cleaned := filepath.Clean(comp)
+		if filepath.IsAbs(cleaned) {
+			return "", errors.New("absolute path")
+		}
+		safeComps = append(safeComps, cleaned)
 	}
 	safeFilePath := filepath.Join(safeComps...)
+	if filepath.IsAbs(safeFilePath) {
+		return "", errors.New("absolute path")
+	}
 	fc := firstComponent(safeFilePath)
 	switch fc {
 	case "..":

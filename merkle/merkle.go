@@ -40,6 +40,14 @@ func RootWithPadHash(hashes [][sha256.Size]byte, padHash [sha256.Size]byte) [sha
 }
 
 func CompactLayerToSliceHashes(compactLayer string) (hashes [][sha256.Size]byte, err error) {
+	if len(compactLayer)%sha256.Size != 0 {
+		err = fmt.Errorf(
+			"compact layer length %d is not a multiple of hash size %d",
+			len(compactLayer),
+			sha256.Size,
+		)
+		return
+	}
 	g.MakeSliceWithLength(&hashes, len(compactLayer)/sha256.Size)
 	for i := range hashes {
 		n := copy(hashes[i][:], compactLayer[i*sha256.Size:])
