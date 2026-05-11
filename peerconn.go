@@ -1094,7 +1094,7 @@ func (c *PeerConn) onReadExtendedMsg(id pp.ExtensionNumber, payload []byte) (err
 			}
 		}
 		c.requestPendingMetadata()
-		if !t.cl.config.DisablePEX {
+		if t.peerExchangeEnabled() {
 			t.pex.Add(c) // we learnt enough now
 			// This checks the extension is supported internally.
 			c.pex.Init(c)

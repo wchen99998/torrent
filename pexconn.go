@@ -33,13 +33,13 @@ type pexConnState struct {
 }
 
 func (s *pexConnState) IsEnabled() bool {
-	return s.enabled
+	return s.enabled && (s.torrent == nil || !s.torrent.Private())
 }
 
 // Init is called from the reader goroutine upon the extended handshake completion
 func (s *pexConnState) Init(c *PeerConn) {
 	xid, ok := c.PeerExtensionIDs[pp.ExtensionNamePex]
-	if !ok || xid == 0 || c.t.cl.config.DisablePEX {
+	if !ok || xid == 0 || !c.t.peerExchangeEnabled() {
 		return
 	}
 	s.xid = xid

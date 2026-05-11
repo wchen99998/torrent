@@ -454,6 +454,9 @@ func (lpd *lpdServer) lpdPeers(t *Torrent) {
 }
 
 func lpdPeer(t *Torrent, p string) {
+	if t.Private() {
+		return
+	}
 	host, port, err := net.SplitHostPort(p)
 	if err != nil {
 		return

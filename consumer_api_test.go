@@ -149,6 +149,46 @@ func TestFileWaitCompleteZeroLength(t *testing.T) {
 	require.NoError(t, tor.Files()[0].WaitComplete(ctx))
 }
 
+func TestDisallowDataDownloadUpdatesPendingPieces(t *testing.T) {
+	cl, tor := newConsumerAPITestTorrent(t, &metainfo.Info{
+		Name:        "payload",
+		Length:      4,
+		PieceLength: 4,
+		Pieces:      make([]byte, metainfo.HashSize),
+	})
+	require.NoError(t, tor.piece(0).Storage().MarkNotComplete())
+	tor.piece(0).UpdateCompletion()
+	tor.Files()[0].Download()
+
+	cl.lock()
+	defer cl.unlock()
+	require.False(t, tor._pendingPieces.IsEmpty())
+	tor.disallowDataDownloadLocked()
+	assert.True(t, tor._pendingPieces.IsEmpty())
+	short := *tor.canonicalShortInfohash()
+	for item := range tor.getPieceRequestOrder().Iter {
+		if item.Key.InfoHash.Value() == short && item.State.Priority > PiecePriorityNone && !tor.ignorePieceForRequests(item.Key.Index) {
+			t.Fatalf("piece %d remained requestable after data download was disallowed", item.Key.Index)
+		}
+	}
+}
+
+func TestPrivateTorrentDisablesPeerExchangeAndDhtAnnounce(t *testing.T) {
+	private := true
+	_, tor := newConsumerAPITestTorrent(t, &metainfo.Info{
+		Name:        "payload",
+		Length:      4,
+		PieceLength: 4,
+		Pieces:      make([]byte, metainfo.HashSize),
+		Private:     &private,
+	})
+
+	assert.True(t, tor.Private())
+	assert.False(t, tor.peerExchangeEnabled())
+	_, _, err := tor.AnnounceToDht(nil)
+	assert.ErrorContains(t, err, "private")
+}
+
 func TestAddPeerAddrs(t *testing.T) {
 	cfg := TestingConfig(t)
 	cfg.DialForPeerConns = false

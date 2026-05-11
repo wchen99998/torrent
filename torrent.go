@@ -28,7 +28,6 @@ import (
 	"github.com/RoaringBitmap/roaring/v2"
 	"github.com/anacrolix/chansync"
 	"github.com/anacrolix/chansync/events"
-	"github.com/wchen99998/dht/v2"
 	g "github.com/anacrolix/generics"
 	"github.com/anacrolix/log"
 	"github.com/anacrolix/missinggo/v2"
@@ -37,6 +36,7 @@ import (
 	"github.com/anacrolix/multiless"
 	"github.com/anacrolix/sync"
 	"github.com/pion/webrtc/v4"
+	"github.com/wchen99998/dht/v2"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 
@@ -1978,7 +1978,7 @@ func (t *Torrent) deletePeerConn(c *PeerConn) (ret bool) {
 	// Avoid adding a drop event more than once. Probably we should track whether we've generated
 	// the drop event against the PexConnState instead.
 	if ret {
-		if !t.cl.config.DisablePEX {
+		if t.peerExchangeEnabled() {
 			t.pex.Drop(c)
 		}
 	}
@@ -2314,6 +2314,10 @@ func (t *Torrent) consumeDhtAnnouncePeers(pvs <-chan dht.PeersValues) {
 // calls a private one that is much more modern. Both v1 and v2 info hashes are announced if they
 // exist.
 func (t *Torrent) AnnounceToDht(s DhtServer) (done <-chan struct{}, stop func(), err error) {
+	if t.Private() {
+		err = errors.New("torrent is private")
+		return
+	}
 	var ihs [][20]byte
 	t.cl.lock()
 	t.eachShortInfohash(func(short [20]byte) {
@@ -2388,6 +2392,9 @@ func (t *Torrent) dhtAnnouncer(s DhtServer) {
 	for {
 		for {
 			if t.closed.IsSet() {
+				return
+			}
+			if t.Private() {
 				return
 			}
 			// We're also announcing ourselves as a listener, so we don't just want peer addresses.
@@ -2532,7 +2539,7 @@ func (t *Torrent) addPeerConn(c *PeerConn) (err error) {
 	t.conns[c] = struct{}{}
 	t.cl.event.Broadcast()
 	// We'll never receive the "p" extended handshake parameter.
-	if !t.cl.config.DisablePEX && !c.PeerExtensionBytes.SupportsExtended() {
+	if t.peerExchangeEnabled() && !c.PeerExtensionBytes.SupportsExtended() {
 		t.pex.Add(c)
 	}
 	return nil
@@ -3077,6 +3084,7 @@ func (t *Torrent) DisallowDataDownload() {
 
 func (t *Torrent) disallowDataDownloadLocked() {
 	t.dataDownloadDisallowed.Set()
+	t.updateAllPiecePriorities("data download disallowed")
 	t.iterPeers(func(p *Peer) {
 		// Could check if peer request state is empty/not interested?
 		p.onNeedUpdateRequests("disallow data download")

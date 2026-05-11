@@ -222,6 +222,80 @@ func TestReleasedFileKeepsBoundaryPieceData(t *testing.T) {
 	qt.Check(t, qt.IsNil(err))
 }
 
+func TestReleaseStorageFailsWhenBoundarySourceMissing(t *testing.T) {
+	td := t.TempDir()
+	info := &metainfo.Info{
+		Name:        "payload",
+		PieceLength: 3,
+		Pieces:      make([]byte, 40),
+		Files: []metainfo.FileInfo{
+			{Path: []string{"a.bin"}, Length: 2},
+			{Path: []string{"b.bin"}, Length: 2},
+		},
+	}
+	s := NewFileOpts(NewFileClientOpts{
+		ClientBaseDir: td,
+		UsePartFiles:  g.Some(false),
+	})
+	defer s.Close()
+	ts, err := s.OpenTorrent(context.Background(), info, metainfo.Hash{})
+	qt.Assert(t, qt.IsNil(err))
+	defer ts.Close()
+
+	p0 := info.Piece(0)
+	_, err = ts.Piece(p0).WriteAt([]byte("aab"), 0)
+	qt.Assert(t, qt.IsNil(err))
+	p1 := info.Piece(1)
+	_, err = ts.Piece(p1).WriteAt([]byte("b"), 0)
+	qt.Assert(t, qt.IsNil(err))
+	qt.Assert(t, qt.IsNil(ts.Piece(p0).MarkComplete()))
+	qt.Assert(t, qt.IsNil(ts.Piece(p1).MarkComplete()))
+	aPath := filepath.Join(td, "payload", "a.bin")
+	qt.Assert(t, qt.IsNil(os.Remove(aPath)))
+
+	err = ts.MarkFileReleased(0)
+	qt.Check(t, qt.ErrorMatches(err, `released file boundary source .* is missing: .*`))
+	_, err = os.Stat(aPath + ".released")
+	qt.Check(t, qt.IsTrue(errors.Is(err, os.ErrNotExist)))
+	_, err = os.Stat(aPath + ".released.0")
+	qt.Check(t, qt.IsTrue(errors.Is(err, os.ErrNotExist)))
+	_, err = ts.Piece(p0).WriteAt([]byte("aab"), 0)
+	qt.Check(t, qt.IsNil(err))
+}
+
+func TestInvalidReleasedMarkerIgnoredWhenBoundaryMissing(t *testing.T) {
+	td := t.TempDir()
+	info := &metainfo.Info{
+		Name:        "payload",
+		PieceLength: 3,
+		Pieces:      make([]byte, 40),
+		Files: []metainfo.FileInfo{
+			{Path: []string{"a.bin"}, Length: 2},
+			{Path: []string{"b.bin"}, Length: 2},
+		},
+	}
+	aPath := filepath.Join(td, "payload", "a.bin")
+	qt.Assert(t, qt.IsNil(os.MkdirAll(filepath.Dir(aPath), 0o755)))
+	qt.Assert(t, qt.IsNil(os.WriteFile(aPath+".released", nil, 0o666)))
+
+	s := NewFileOpts(NewFileClientOpts{
+		ClientBaseDir: td,
+		UsePartFiles:  g.Some(false),
+	})
+	defer s.Close()
+	ts, err := s.OpenTorrent(context.Background(), info, metainfo.Hash{})
+	qt.Assert(t, qt.IsNil(err))
+	defer ts.Close()
+
+	p0 := info.Piece(0)
+	_, err = ts.Piece(p0).WriteAt([]byte("aab"), 0)
+	qt.Assert(t, qt.IsNil(err))
+	_, err = os.Stat(aPath)
+	qt.Check(t, qt.IsNil(err))
+	_, err = os.Stat(aPath + ".released")
+	qt.Check(t, qt.IsTrue(errors.Is(err, os.ErrNotExist)))
+}
+
 func TestReleaseStorageRollbackWhenRemovalFails(t *testing.T) {
 	td := t.TempDir()
 	info := &metainfo.Info{

@@ -33,6 +33,15 @@ func (t *Torrent) Info() (info *metainfo.Info) {
 	return
 }
 
+func (t *Torrent) Private() bool {
+	info := t.Info()
+	return info != nil && info.Private != nil && *info.Private
+}
+
+func (t *Torrent) peerExchangeEnabled() bool {
+	return !t.cl.config.DisablePEX && !t.Private()
+}
+
 // WaitInfo waits for the torrent info dictionary to become available.
 func (t *Torrent) WaitInfo(ctx context.Context) (*metainfo.Info, error) {
 	if ctx == nil {

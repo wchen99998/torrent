@@ -58,6 +58,12 @@ func (me *fileTorrentImpl) markFileReleased(fileIndex int) error {
 		return err
 	}
 	f := me.file(fileIndex)
+	f.mu.RLock()
+	alreadyReleased := f.released
+	f.mu.RUnlock()
+	if alreadyReleased {
+		return me.validateReleasedBoundaryPieces(fileIndex, f)
+	}
 	if err := me.writeReleasedBoundaryPieces(fileIndex, f); err != nil {
 		return err
 	}
@@ -165,6 +171,29 @@ func (me *fileTorrentImpl) writeReleasedBoundaryPieces(fileIndex int, f file) er
 	return nil
 }
 
+func (me *fileTorrentImpl) validateReleasedBoundaryPieces(fileIndex int, f file) error {
+	for pieceIndex := f.beginPieceIndex(); pieceIndex < f.endPieceIndex(); pieceIndex++ {
+		fileExtent, ok := me.fileExtentInBoundaryPiece(fileIndex, pieceIndex)
+		if !ok {
+			continue
+		}
+		fi, err := os.Stat(f.releasedPiecePath(pieceIndex))
+		if err != nil {
+			return fmt.Errorf("released file boundary piece %d for %q: %w", pieceIndex, f.safeOsPath, err)
+		}
+		if fi.Size() != fileExtent.Length {
+			return fmt.Errorf(
+				"released file boundary piece %d for %q has size %d, expected %d",
+				pieceIndex,
+				f.safeOsPath,
+				fi.Size(),
+				fileExtent.Length,
+			)
+		}
+	}
+	return nil
+}
+
 func (me *fileTorrentImpl) fileExtentInBoundaryPiece(fileIndex, pieceIndex int) (segments.Extent, bool) {
 	fileExtent, ok, fileSegments := me.fileExtentInPieceWithSegmentCount(fileIndex, pieceIndex)
 	return fileExtent, ok && fileSegments > 1
@@ -201,7 +230,7 @@ func (me *fileTorrentImpl) writeReleasedBoundaryPiece(f file, pieceIndex int, ex
 	in, err := os.Open(sourcePath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil
+			return fmt.Errorf("released file boundary source %q is missing: %w", sourcePath, err)
 		}
 		return fmt.Errorf("opening released file boundary source %q: %w", sourcePath, err)
 	}
@@ -316,6 +345,13 @@ func (me *fileTorrentImpl) loadReleasedFileMarkers() {
 	for i := range me.files {
 		f := me.file(i)
 		if _, err := os.Stat(f.releasedFilePath()); err == nil {
+			if err := me.validateReleasedBoundaryPieces(i, f); err != nil {
+				me.logger().Warn("ignoring invalid released file marker", "file", f.safeOsPath, "err", err)
+				if err := me.removeReleasedFileStorage(f); err != nil {
+					me.logger().Warn("error removing invalid released file marker", "file", f.safeOsPath, "err", err)
+				}
+				continue
+			}
 			f.mu.Lock()
 			f.released = true
 			f.mu.Unlock()

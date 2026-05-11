@@ -173,7 +173,9 @@ func (cl *Client) OnLPDAnnouncement(addr string, infohashes []string) {
 	announced := make(map[*Torrent]struct{}, len(infohashes))
 	for _, ih := range infohashes {
 		if t, ok := cl.Torrent(metainfo.NewHashFromHex(ih)); ok {
-			lpdPeer(t, addr)
+			if !t.Private() {
+				lpdPeer(t, addr)
+			}
 			announced[t] = struct{}{}
 		}
 	}
@@ -189,7 +191,9 @@ func (cl *Client) OnLPDAnnouncement(addr string, infohashes []string) {
 	cl.rUnlock()
 
 	for _, t := range rest {
-		lpdPeer(t, addr)
+		if !t.Private() {
+			lpdPeer(t, addr)
+		}
 	}
 }
 
@@ -1233,7 +1237,7 @@ func (t *Torrent) runHandshookConn(pc *PeerConn) error {
 		return fmt.Errorf("adding connection: %w", err)
 	}
 	defer t.dropConnection(pc)
-	pc.addBuiltinLtepProtocols(!cl.config.DisablePEX)
+	pc.addBuiltinLtepProtocols(t.peerExchangeEnabled())
 	for _, cb := range pc.callbacks.PeerConnAdded {
 		cb(pc)
 	}
@@ -1338,7 +1342,7 @@ func (pc *PeerConn) sendInitialMessages() {
 		}
 		pc.postBitfield()
 	}()
-	if pc.PeerExtensionBytes.SupportsDHT() && cl.config.Extensions.SupportsDHT() && cl.haveDhtServer() {
+	if pc.PeerExtensionBytes.SupportsDHT() && cl.config.Extensions.SupportsDHT() && cl.haveDhtServer() && !t.Private() {
 		pc.write(pp.Message{
 			Type: pp.Port,
 			Port: cl.dhtPort(),
@@ -1839,7 +1843,7 @@ func (cl *Client) onDHTAnnouncePeer(ih metainfo.Hash, ip net.IP, port int, portO
 	cl.lock()
 	defer cl.unlock()
 	t := cl.torrentsByShortHash[ih]
-	if t == nil {
+	if t == nil || t.Private() {
 		return
 	}
 	t.addPeers([]PeerInfo{{
