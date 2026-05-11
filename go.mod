@@ -46,7 +46,7 @@ require (
 	github.com/protolambda/ctxlock v0.1.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/btree v1.8.1
-	github.com/wchen99998/dht/v2 v2.24.0
+	github.com/wchen99998/dht/v2 v2.24.1
 	go.etcd.io/bbolt v1.3.6
 	go.opentelemetry.io/otel v1.38.0
 	go.opentelemetry.io/otel/trace v1.38.0
