@@ -77,7 +77,7 @@ func (t *Torrent) PeerSnapshots() []PeerSnapshot {
 		snap := PeerSnapshot{
 			PeerID:           peerID,
 			Source:           p.Discovery,
-			Stats:            p.Stats(),
+			Stats:            p.statsLocked(),
 			LocalChoking:     p.choking,
 			LocalInterested:  localInterested,
 			RemoteChoking:    p.peerChoking,

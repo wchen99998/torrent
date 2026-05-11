@@ -45,6 +45,26 @@ func (f *File) Completed() int64 {
 // WaitComplete waits until the file is complete, the context is cancelled, or
 // the torrent is closed. It does not change file or piece priorities.
 func (f *File) WaitComplete(ctx context.Context) error {
+	return f.waitComplete(ctx, f.completeLocked)
+}
+
+// VerifiedComplete reports whether every piece containing data for the file is
+// known complete. It is stricter than Completed/WaitComplete, which can include
+// dirty chunks that have not been verified yet.
+func (f *File) VerifiedComplete() bool {
+	f.t.cl.rLock()
+	defer f.t.cl.rUnlock()
+	return f.verifiedCompleteLocked()
+}
+
+// WaitVerifiedComplete waits until every piece containing data for the file is
+// known complete, the context is cancelled, or the torrent is closed. It does
+// not change file or piece priorities.
+func (f *File) WaitVerifiedComplete(ctx context.Context) error {
+	return f.waitComplete(ctx, f.verifiedCompleteLocked)
+}
+
+func (f *File) waitComplete(ctx context.Context, complete func() bool) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -62,7 +82,7 @@ func (f *File) WaitComplete(ctx context.Context) error {
 	f.t.cl.lock()
 	defer f.t.cl.unlock()
 	for {
-		if f.bytesCompletedLocked() >= f.length {
+		if complete() {
 			return nil
 		}
 		if f.t.closed.IsSet() {
@@ -73,6 +93,23 @@ func (f *File) WaitComplete(ctx context.Context) error {
 		}
 		f.t.cl.event.Wait()
 	}
+}
+
+func (f *File) completeLocked() bool {
+	return f.bytesCompletedLocked() >= f.length
+}
+
+func (f *File) verifiedCompleteLocked() bool {
+	if f.length == 0 {
+		return true
+	}
+	for i := f.BeginPieceIndex(); i < f.EndPieceIndex(); i++ {
+		state := f.t.pieceState(i)
+		if !state.Ok || !state.Complete {
+			return false
+		}
+	}
+	return true
 }
 
 // ReleaseStorage releases storage for a file that has been completed and handed

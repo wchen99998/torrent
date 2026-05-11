@@ -21,6 +21,14 @@ type FileLease struct {
 
 	mu        sync.Mutex
 	finalized bool
+	done      chan struct{}
+}
+
+type limitedReadCloser struct {
+	reader io.Reader
+	closer io.Closer
+	once   sync.Once
+	err    error
 }
 
 // Release finalizes a completed file that has been handed off to the caller.
@@ -67,7 +75,33 @@ func (l *FileLease) finalize(ctx context.Context, discard bool) error {
 		return err
 	}
 	l.finalized = true
+	if l.done == nil {
+		l.done = make(chan struct{})
+	}
+	close(l.done)
 	return nil
+}
+
+func (l *FileLease) waitFinalized(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	l.mu.Lock()
+	if l.finalized {
+		l.mu.Unlock()
+		return nil
+	}
+	if l.done == nil {
+		l.done = make(chan struct{})
+	}
+	done := l.done
+	l.mu.Unlock()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 type FilesOptions struct {
@@ -79,6 +113,10 @@ type FilesOptions struct {
 	MaxActive int
 	// Readahead overrides the Reader default when non-zero.
 	Readahead int64
+	// RequireExplicitRelease makes Files wait for the handler to call Release
+	// or Discard when the handler returns nil without finalizing the lease.
+	// While waiting, the lease still counts against MaxActive.
+	RequireExplicitRelease bool
 }
 
 // Files downloads selected files, waits for each to complete, hands it to h,
@@ -108,64 +146,51 @@ func Files(
 	}
 	waitCtx, cancelWaits := context.WithCancel(ctx)
 	defer cancelWaits()
-	results := make(chan fileResult, maxActive)
+	slots := make(chan struct{}, maxActive)
+	results := make(chan error, len(files))
 	var wg sync.WaitGroup
-	active := make(map[*torrent.File]struct{}, maxActive)
-	next := 0
-	startNext := func() {
-		f := files[next]
-		next++
-		active[f] = struct{}{}
+	var resultErr error
+queue:
+	for _, f := range files {
+		select {
+		case slots <- struct{}{}:
+		case <-ctx.Done():
+			resultErr = errors.Join(resultErr, ctx.Err())
+			break queue
+		}
 		f.Download()
 		wg.Add(1)
-		go func() {
+		go func(f *torrent.File) {
 			defer wg.Done()
-			results <- fileResult{
-				file: f,
-				err:  f.WaitComplete(waitCtx),
+			defer func() {
+				f.SetPriority(torrent.PiecePriorityNone)
+				<-slots
+			}()
+			if err := f.WaitVerifiedComplete(waitCtx); err != nil {
+				results <- err
+				return
 			}
-		}()
-	}
-	startUntilFull := func() {
-		for len(active) < maxActive && next < len(files) {
-			startNext()
-		}
-	}
-	cancelActive := func() {
-		cancelWaits()
-		for f := range active {
-			f.SetPriority(torrent.PiecePriorityNone)
-		}
-		wg.Wait()
-	}
-	startUntilFull()
-	for len(active) != 0 {
-		result := <-results
-		delete(active, result.file)
-		result.file.SetPriority(torrent.PiecePriorityNone)
-		if result.err != nil {
-			cancelActive()
-			return result.err
-		}
-		startUntilFull()
-		lease := newLease(ctx, result.file, opts.Readahead)
-		handlerErr := h(ctx, lease)
-		var finalizeErr error
-		if !lease.wasFinalized() {
-			finalizeErr = lease.Release(context.Background())
-		}
-		if err := errors.Join(handlerErr, finalizeErr); err != nil {
-			cancelActive()
-			return err
-		}
+			lease := newLease(ctx, f, opts.Readahead)
+			handlerErr := h(ctx, lease)
+			var finalizeErr error
+			if !lease.wasFinalized() {
+				if handlerErr != nil || !opts.RequireExplicitRelease {
+					finalizeErr = lease.Release(context.Background())
+				} else {
+					finalizeErr = lease.waitFinalized(ctx)
+				}
+			}
+			results <- errors.Join(handlerErr, finalizeErr)
+		}(f)
 	}
 	wg.Wait()
-	return nil
-}
-
-type fileResult struct {
-	file *torrent.File
-	err  error
+	close(results)
+	for err := range results {
+		if err != nil {
+			resultErr = errors.Join(resultErr, err)
+		}
+	}
+	return resultErr
 }
 
 func newLease(ctx context.Context, f *torrent.File, readahead int64) *FileLease {
@@ -180,8 +205,27 @@ func newLease(ctx context.Context, f *torrent.File, readahead int64) *FileLease 
 		Path:        f.Path(),
 		DisplayPath: f.DisplayPath(),
 		Length:      f.Length(),
-		Reader:      r,
+		Reader:      newLimitedReadCloser(r, f.Length()),
+		done:        make(chan struct{}),
 	}
+}
+
+func newLimitedReadCloser(r io.ReadCloser, n int64) *limitedReadCloser {
+	return &limitedReadCloser{
+		reader: io.LimitReader(r, n),
+		closer: r,
+	}
+}
+
+func (r *limitedReadCloser) Read(p []byte) (int, error) {
+	return r.reader.Read(p)
+}
+
+func (r *limitedReadCloser) Close() error {
+	r.once.Do(func() {
+		r.err = r.closer.Close()
+	})
+	return r.err
 }
 
 func selectFiles(files []*torrent.File, indexes []int) ([]*torrent.File, error) {

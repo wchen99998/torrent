@@ -123,6 +123,31 @@ func TestFileWaitComplete(t *testing.T) {
 	require.NoError(t, <-done)
 }
 
+func TestFileVerifiedComplete(t *testing.T) {
+	_, tor := newConsumerAPITestTorrent(t, &metainfo.Info{
+		Name:        "payload",
+		Length:      4,
+		PieceLength: 4,
+		Pieces:      make([]byte, metainfo.HashSize),
+	})
+	file := tor.Files()[0]
+	piece := tor.piece(0)
+	storage := piece.Storage()
+	_, err := storage.WriteAt([]byte("data"), 0)
+	require.NoError(t, err)
+
+	assert.False(t, file.VerifiedComplete())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	assert.ErrorIs(t, file.WaitVerifiedComplete(ctx), context.Canceled)
+
+	require.NoError(t, storage.MarkComplete())
+	piece.UpdateCompletion()
+	assert.True(t, file.VerifiedComplete())
+	require.NoError(t, file.WaitVerifiedComplete(context.Background()))
+}
+
 func TestFileWaitCompleteContextCancelAndClose(t *testing.T) {
 	_, tor := newConsumerAPITestTorrent(t, &metainfo.Info{
 		Name:        "payload",

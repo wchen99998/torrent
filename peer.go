@@ -132,6 +132,10 @@ func (p *Peer) Torrent() *Torrent {
 func (p *Peer) Stats() (ret PeerStats) {
 	p.locker().RLock()
 	defer p.locker().RUnlock()
+	return p.statsLocked()
+}
+
+func (p *Peer) statsLocked() (ret PeerStats) {
 	ret.ConnStats = p._stats.Copy()
 	ret.DownloadRate = p.downloadRate()
 	ret.LastWriteUploadRate = p.peerImpl.lastWriteUploadRate()

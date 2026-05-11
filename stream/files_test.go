@@ -80,6 +80,34 @@ func TestFilesSelectedIndexesAndMaxActive(t *testing.T) {
 	assert.Equal(t, []int{0, 2}, got)
 }
 
+func TestFilesRequireExplicitReleaseKeepsActiveSlot(t *testing.T) {
+	_, tor, _ := newCompletedTorrent(t)
+	leases := make(chan *FileLease, 2)
+	done := make(chan error, 1)
+	go func() {
+		done <- Files(context.Background(), tor, FilesOptions{
+			FileIndexes:            []int{0, 1},
+			MaxActive:              1,
+			RequireExplicitRelease: true,
+		}, func(ctx context.Context, lease *FileLease) error {
+			leases <- lease
+			return nil
+		})
+	}()
+
+	first := receiveLease(t, leases, "first")
+	select {
+	case second := <-leases:
+		t.Fatalf("second lease %d started before first was released", second.Index)
+	case <-time.After(100 * time.Millisecond):
+	}
+	require.NoError(t, first.Release(context.Background()))
+
+	second := receiveLease(t, leases, "second")
+	require.NoError(t, second.Release(context.Background()))
+	require.NoError(t, <-done)
+}
+
 func TestFilesHandlesCompletedFilesOutOfOrder(t *testing.T) {
 	baseDir := t.TempDir()
 	spec := testutil.Torrent{
@@ -235,4 +263,15 @@ func TestFilesContextCancellation(t *testing.T) {
 		return nil
 	})
 	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func receiveLease(t *testing.T, leases <-chan *FileLease, label string) *FileLease {
+	t.Helper()
+	select {
+	case lease := <-leases:
+		return lease
+	case <-time.After(3 * time.Second):
+		t.Fatalf("%s lease did not start", label)
+		return nil
+	}
 }
