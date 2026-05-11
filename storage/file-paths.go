@@ -9,15 +9,18 @@ import (
 )
 
 // Determines the filepath to be used for each file in a torrent.
-type FilePathMaker func(opts FilePathMakerOpts) string
+type FilePathMaker func(opts FilePathMakerOpts) (string, error)
 
 // Determines the directory for a given torrent within a storage client.
 type TorrentDirFilePathMaker func(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string
 
 // Info passed to a FilePathMaker.
 type FilePathMakerOpts struct {
-	Info *metainfo.Info
-	File *metainfo.FileInfo
+	Info        *metainfo.Info
+	InfoHash    metainfo.Hash
+	File        *metainfo.FileInfo
+	FileIndex   int
+	DefaultPath string
 }
 
 // defaultPathMaker just returns the storage client's base directory.
@@ -27,6 +30,14 @@ func defaultPathMaker(baseDir string, info *metainfo.Info, infoHash metainfo.Has
 
 func infoHashPathMaker(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string {
 	return filepath.Join(baseDir, infoHash.HexString())
+}
+
+func defaultFilePath(info *metainfo.Info, file *metainfo.FileInfo) string {
+	var parts []string
+	if info.BestName() != metainfo.NoName {
+		parts = append(parts, info.BestName())
+	}
+	return filepath.Join(append(parts, file.BestPath()...)...)
 }
 
 func isSubFilepath(base, sub string) bool {

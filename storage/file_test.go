@@ -72,6 +72,61 @@ func TestClassicFileReaderStopsAtExtentWithoutShortWrite(t *testing.T) {
 	qt.Check(t, qt.DeepEquals(buf.Bytes(), []byte("abcd")))
 }
 
+func TestFilePathMakerOptsAndErrors(t *testing.T) {
+	td := t.TempDir()
+	infoHash := metainfo.Hash{1, 2, 3}
+	info := &metainfo.Info{
+		Name:        "payload",
+		PieceLength: 4,
+		Pieces:      make([]byte, 20),
+		Files: []metainfo.FileInfo{
+			{Path: []string{"a.bin"}, Length: 2},
+			{Path: []string{"dir", "b.bin"}, Length: 2},
+		},
+	}
+	var seen []FilePathMakerOpts
+	s := NewFileOpts(NewFileClientOpts{
+		ClientBaseDir: td,
+		FilePathMaker: func(opts FilePathMakerOpts) (string, error) {
+			seen = append(seen, opts)
+			if opts.FileIndex == 1 {
+				return "", errors.New("custom path error")
+			}
+			return filepath.Join("custom", opts.File.BestPath()[0]), nil
+		},
+	})
+	defer s.Close()
+	_, err := s.OpenTorrent(context.Background(), info, infoHash)
+	qt.Check(t, qt.ErrorMatches(err, `file 1: making path: custom path error`))
+	qt.Assert(t, qt.HasLen(seen, 2))
+	qt.Check(t, qt.Equals(seen[0].Info, info))
+	qt.Check(t, qt.Equals(seen[0].InfoHash, infoHash))
+	qt.Check(t, qt.Equals(seen[0].FileIndex, 0))
+	qt.Check(t, qt.Equals(seen[0].DefaultPath, filepath.Join("payload", "a.bin")))
+	qt.Check(t, qt.DeepEquals(seen[0].File.BestPath(), []string{"a.bin"}))
+	qt.Check(t, qt.Equals(seen[1].FileIndex, 1))
+	qt.Check(t, qt.Equals(seen[1].DefaultPath, filepath.Join("payload", "dir", "b.bin")))
+}
+
+func TestFilePathMakerRejectsEscapesAfterCustomMaker(t *testing.T) {
+	td := t.TempDir()
+	info := &metainfo.Info{
+		Name:        "payload",
+		Length:      1,
+		PieceLength: 1,
+		Pieces:      make([]byte, 20),
+	}
+	s := NewFileOpts(NewFileClientOpts{
+		ClientBaseDir: td,
+		FilePathMaker: func(opts FilePathMakerOpts) (string, error) {
+			return filepath.Join("..", "escape"), nil
+		},
+	})
+	defer s.Close()
+	_, err := s.OpenTorrent(context.Background(), info, metainfo.Hash{})
+	qt.Check(t, qt.ErrorMatches(err, `file 0: path ".*escape" is not sub path of ".*"`))
+}
+
 func TestReleasedFileRemainsCompleteAfterRemoval(t *testing.T) {
 	td := t.TempDir()
 	info := &metainfo.Info{

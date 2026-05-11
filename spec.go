@@ -1,6 +1,7 @@
 package torrent
 
 import (
+	"bytes"
 	"fmt"
 
 	g "github.com/anacrolix/generics"
@@ -47,9 +48,33 @@ func TorrentSpecFromMagnetUri(uri string) (spec *TorrentSpec, err error) {
 	return
 }
 
+// ParseMetaInfoBytes decodes bencoded metainfo bytes, unmarshals the info
+// dictionary, and returns a TorrentSpec for adding the torrent.
+func ParseMetaInfoBytes(data []byte) (*metainfo.MetaInfo, *metainfo.Info, *TorrentSpec, error) {
+	mi, err := metainfo.Load(bytes.NewReader(data))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	info, err := mi.UnmarshalInfo()
+	if err != nil {
+		return mi, nil, nil, fmt.Errorf("unmarshalling info: %w", err)
+	}
+	spec, err := TorrentSpecFromMetaInfo(mi)
+	if err != nil {
+		return mi, &info, spec, err
+	}
+	return mi, &info, spec, nil
+}
+
+// SpecFromBytes decodes bencoded metainfo bytes and returns a TorrentSpec.
+func SpecFromBytes(data []byte) (*TorrentSpec, error) {
+	_, _, spec, err := ParseMetaInfoBytes(data)
+	return spec, err
+}
+
 // The error will be from unmarshalling the info bytes. The TorrentSpec is still filled out as much
 // as possible in this case.
-func TorrentSpecFromMetaInfoErr(mi *metainfo.MetaInfo) (*TorrentSpec, error) {
+func TorrentSpecFromMetaInfo(mi *metainfo.MetaInfo) (*TorrentSpec, error) {
 	info, err := mi.UnmarshalInfo()
 	if err != nil {
 		err = fmt.Errorf("unmarshalling info: %w", err)
@@ -83,9 +108,14 @@ func TorrentSpecFromMetaInfoErr(mi *metainfo.MetaInfo) (*TorrentSpec, error) {
 	}, err
 }
 
-// Panics if there was anything missing from the metainfo.
-func TorrentSpecFromMetaInfo(mi *metainfo.MetaInfo) *TorrentSpec {
-	ts, err := TorrentSpecFromMetaInfoErr(mi)
+// Deprecated: Use TorrentSpecFromMetaInfo.
+func TorrentSpecFromMetaInfoErr(mi *metainfo.MetaInfo) (*TorrentSpec, error) {
+	return TorrentSpecFromMetaInfo(mi)
+}
+
+// MustTorrentSpecFromMetaInfo panics if there was anything missing from the metainfo.
+func MustTorrentSpecFromMetaInfo(mi *metainfo.MetaInfo) *TorrentSpec {
+	ts, err := TorrentSpecFromMetaInfo(mi)
 	if err != nil {
 		panic(err)
 	}

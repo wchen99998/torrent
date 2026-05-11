@@ -11,7 +11,7 @@ import (
 	"net"
 	"net/netip"
 
-	"github.com/anacrolix/dht/v2/krpc"
+	"github.com/wchen99998/dht/v2/krpc"
 	"github.com/anacrolix/generics"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

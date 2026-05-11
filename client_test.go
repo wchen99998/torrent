@@ -15,13 +15,13 @@ import (
 	"testing/iotest"
 	"time"
 
-	"github.com/anacrolix/dht/v2"
 	"github.com/anacrolix/log"
 	"github.com/anacrolix/missinggo/v2"
 	"github.com/anacrolix/missinggo/v2/filecache"
 	"github.com/go-quicktest/qt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wchen99998/dht/v2"
 
 	"github.com/wchen99998/torrent/bencode"
 	"github.com/wchen99998/torrent/internal/testutil"
@@ -43,7 +43,7 @@ func TestDisableInitialPieceCheckTreatsUnknownPiecesAsIncomplete(t *testing.T) {
 	require.NoError(t, err)
 	defer cl.Close()
 
-	spec := TorrentSpecFromMetaInfo(testutil.GreetingMetaInfo())
+	spec := MustTorrentSpecFromMetaInfo(testutil.GreetingMetaInfo())
 	spec.DisableInitialPieceCheck = true
 	tt, _, err := cl.AddTorrentSpec(spec)
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestAddDropTorrent(t *testing.T) {
 	defer cl.Close()
 	dir, mi := testutil.GreetingTestTorrent()
 	defer os.RemoveAll(dir)
-	tt, new, err := cl.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	tt, new, err := cl.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 	require.NoError(t, err)
 	assert.True(t, new)
 	tt.SetMaxEstablishedConns(0)
@@ -254,7 +254,7 @@ func TestResponsive(t *testing.T) {
 	seeder, err := NewClient(cfg)
 	require.Nil(t, err)
 	defer seeder.Close()
-	seederTorrent, _, _ := seeder.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	seederTorrent, _, _ := seeder.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 	seederTorrent.VerifyData()
 	leecherDataDir := t.TempDir()
 	cfg = TestingConfig(t)
@@ -263,7 +263,7 @@ func TestResponsive(t *testing.T) {
 	require.Nil(t, err)
 	defer leecher.Close()
 	leecherTorrent, _, _ := leecher.AddTorrentSpec(func() (ret *TorrentSpec) {
-		ret = TorrentSpecFromMetaInfo(mi)
+		ret = MustTorrentSpecFromMetaInfo(mi)
 		ret.ChunkSize = 2
 		return
 	}())
@@ -298,7 +298,7 @@ func TestResponsiveTcpOnly(t *testing.T) {
 	seeder, err := NewClient(cfg)
 	require.Nil(t, err)
 	defer seeder.Close()
-	seederTorrent, _, _ := seeder.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	seederTorrent, _, _ := seeder.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 	seederTorrent.VerifyData()
 	leecherDataDir := t.TempDir()
 	cfg = TestingConfig(t)
@@ -307,7 +307,7 @@ func TestResponsiveTcpOnly(t *testing.T) {
 	require.Nil(t, err)
 	defer leecher.Close()
 	leecherTorrent, _, _ := leecher.AddTorrentSpec(func() (ret *TorrentSpec) {
-		ret = TorrentSpecFromMetaInfo(mi)
+		ret = MustTorrentSpecFromMetaInfo(mi)
 		ret.ChunkSize = 2
 		return
 	}())
@@ -339,7 +339,7 @@ func TestTorrentDroppedDuringResponsiveRead(t *testing.T) {
 	seeder, err := NewClient(cfg)
 	require.Nil(t, err)
 	defer seeder.Close()
-	seederTorrent, _, _ := seeder.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	seederTorrent, _, _ := seeder.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 	seederTorrent.VerifyData()
 	leecherDataDir := t.TempDir()
 	cfg = TestingConfig(t)
@@ -348,7 +348,7 @@ func TestTorrentDroppedDuringResponsiveRead(t *testing.T) {
 	require.Nil(t, err)
 	defer leecher.Close()
 	leecherTorrent, _, _ := leecher.AddTorrentSpec(func() (ret *TorrentSpec) {
-		ret = TorrentSpecFromMetaInfo(mi)
+		ret = MustTorrentSpecFromMetaInfo(mi)
 		ret.ChunkSize = 2
 		return
 	}())
@@ -383,9 +383,7 @@ func TestDhtInheritBlocklist(t *testing.T) {
 	numServers := 0
 	cl.eachDhtServer(func(s DhtServer) {
 		t.Log(s)
-		blocklist, ok := s.(AnacrolixDhtServerWrapper).Server.IPBlocklist().(dhtIPBlocklist)
-		require.True(t, ok)
-		assert.Equal(t, ipl, blocklist.Ranger)
+		assert.Equal(t, ipl, s.(AnacrolixDhtServerWrapper).Server.IPBlocklist())
 		numServers++
 	})
 	qt.Assert(t, qt.Not(qt.Equals(numServers, 0)))
@@ -404,7 +402,7 @@ func TestAddTorrentSpecMerging(t *testing.T) {
 	})
 	require.True(t, new)
 	require.Nil(t, tt.Info())
-	_, new, err = cl.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	_, new, err = cl.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 	require.NoError(t, err)
 	require.False(t, new)
 	require.NotNil(t, tt.Info())
@@ -528,7 +526,7 @@ func testDownloadCancel(t *testing.T, ps testDownloadCancelParams) {
 	require.NoError(t, err)
 	defer seeder.Close()
 	defer testutil.ExportStatusWriter(seeder, "s", t)()
-	seederTorrent, _, _ := seeder.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	seederTorrent, _, _ := seeder.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 	seederTorrent.VerifyData()
 	leecherDataDir := t.TempDir()
 	fc, err := filecache.NewCache(leecherDataDir)
@@ -543,7 +541,7 @@ func testDownloadCancel(t *testing.T, ps testDownloadCancelParams) {
 	defer leecher.Close()
 	defer testutil.ExportStatusWriter(leecher, "l", t)()
 	leecherGreeting, new, err := leecher.AddTorrentSpec(func() (ret *TorrentSpec) {
-		ret = TorrentSpecFromMetaInfo(mi)
+		ret = MustTorrentSpecFromMetaInfo(mi)
 		ret.ChunkSize = 2
 		return
 	}())

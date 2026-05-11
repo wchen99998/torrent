@@ -24,8 +24,6 @@ import (
 	"github.com/RoaringBitmap/roaring/v2"
 	"github.com/anacrolix/chansync"
 	"github.com/anacrolix/chansync/events"
-	"github.com/anacrolix/dht/v2"
-	"github.com/anacrolix/dht/v2/krpc"
 	g "github.com/anacrolix/generics"
 	"github.com/anacrolix/generics/heap"
 	"github.com/anacrolix/log"
@@ -37,6 +35,8 @@ import (
 	"github.com/dustin/go-humanize"
 	gbtree "github.com/google/btree"
 	"github.com/pion/webrtc/v4"
+	"github.com/wchen99998/dht/v2"
+	"github.com/wchen99998/dht/v2/krpc"
 	"github.com/wchen99998/torrent/internal/amortize"
 	"github.com/wchen99998/torrent/internal/extracmp"
 	"github.com/wchen99998/torrent/tracker"
@@ -544,9 +544,9 @@ func (cl *Client) listenNetworks() (ns []network) {
 func (cl *Client) NewAnacrolixDhtServer(conn net.PacketConn) (s *dht.Server, err error) {
 	logger := cl.logger.WithNames("dht", conn.LocalAddr().String())
 	cfg := dht.ServerConfig{
-		IPBlocklist:    dhtIPBlocklistFrom(cl.ipBlockList),
+		IPBlocklist:    cl.ipBlockList,
 		Conn:           conn,
-		OnAnnouncePeer: dhtAnnouncePeerCallback(cl.onDHTAnnouncePeer),
+		OnAnnouncePeer: cl.onDHTAnnouncePeer,
 		PublicIP: func() net.IP {
 			if connIsIpv6(conn) && cl.config.PublicIp6 != nil {
 				return cl.config.PublicIp6
@@ -1721,7 +1721,7 @@ func (cl *Client) AddMagnet(uri string) (T *Torrent, err error) {
 }
 
 func (cl *Client) AddTorrent(mi *metainfo.MetaInfo) (T *Torrent, err error) {
-	ts, err := TorrentSpecFromMetaInfoErr(mi)
+	ts, err := TorrentSpecFromMetaInfo(mi)
 	if err != nil {
 		return
 	}

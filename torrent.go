@@ -28,7 +28,7 @@ import (
 	"github.com/RoaringBitmap/roaring/v2"
 	"github.com/anacrolix/chansync"
 	"github.com/anacrolix/chansync/events"
-	"github.com/anacrolix/dht/v2"
+	"github.com/wchen99998/dht/v2"
 	g "github.com/anacrolix/generics"
 	"github.com/anacrolix/log"
 	"github.com/anacrolix/missinggo/v2"

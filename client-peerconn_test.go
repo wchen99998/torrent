@@ -100,7 +100,7 @@ func testClientTransfer(t *testing.T, ps testClientTransferParams) {
 	if ps.ConfigureSeeder.Client != nil {
 		ps.ConfigureSeeder.Client(seeder)
 	}
-	seederTorrent, _, _ := seeder.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	seederTorrent, _, _ := seeder.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 	defer seeder.Close()
 	<-seederTorrent.Complete().On()
 
@@ -124,7 +124,7 @@ func testClientTransfer(t *testing.T, ps testClientTransferParams) {
 		ps.ConfigureLeecher.Client(leecher)
 	}
 	leecherTorrent, new, err := leecher.AddTorrentSpec(func() (ret *TorrentSpec) {
-		ret = TorrentSpecFromMetaInfo(mi)
+		ret = MustTorrentSpecFromMetaInfo(mi)
 		ret.ChunkSize = 2
 		if ps.LeecherStartsWithoutMetadata {
 			ret.InfoBytes = nil

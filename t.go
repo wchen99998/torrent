@@ -33,6 +33,24 @@ func (t *Torrent) Info() (info *metainfo.Info) {
 	return
 }
 
+// WaitInfo waits for the torrent info dictionary to become available.
+func (t *Torrent) WaitInfo(ctx context.Context) (*metainfo.Info, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if info := t.Info(); info != nil {
+		return info, nil
+	}
+	select {
+	case <-t.gotMetainfoC:
+		return t.Info(), nil
+	case <-t.closed.Done():
+		return nil, errTorrentClosed
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
 // Returns a Reader bound to the torrent's data. All read calls block until the data requested is
 // actually available. Note that you probably want to ensure the Torrent Info is available first.
 func (t *Torrent) NewReader() Reader {
@@ -251,6 +269,25 @@ func (t *Torrent) AddPeers(pp []PeerInfo) (n int) {
 	t.cl.lock()
 	defer t.cl.unlock()
 	n = t.addPeers(pp)
+	return
+}
+
+// AddPeerAddrs adds direct peer addresses to the torrent and returns how many
+// changed the peer set.
+func (t *Torrent) AddPeerAddrs(addrs []string) (n int) {
+	t.cl.lock()
+	defer t.cl.unlock()
+	n = t.addPeersIter(func(yield func(PeerInfo) bool) {
+		for _, addr := range addrs {
+			if !yield(PeerInfo{
+				Addr:    StringAddr(addr),
+				Source:  PeerSourceDirect,
+				Trusted: true,
+			}) {
+				return
+			}
+		}
+	})
 	return
 }
 

@@ -47,12 +47,8 @@ func NewFileOpts(opts NewFileClientOpts) ClientImplCloser {
 		opts.TorrentDirMaker = defaultPathMaker
 	}
 	if opts.FilePathMaker == nil {
-		opts.FilePathMaker = func(opts FilePathMakerOpts) string {
-			var parts []string
-			if opts.Info.BestName() != metainfo.NoName {
-				parts = append(parts, opts.Info.BestName())
-			}
-			return filepath.Join(append(parts, opts.File.BestPath()...)...)
+		opts.FilePathMaker = func(opts FilePathMakerOpts) (string, error) {
+			return opts.DefaultPath, nil
 		}
 	}
 	if opts.PieceCompletion == nil {
@@ -82,10 +78,19 @@ func (fs *fileClientImpl) OpenTorrent(
 	metainfoFileInfos := info.UpvertedFiles()
 	files := make([]fileExtra, len(metainfoFileInfos))
 	for i, fileInfo := range metainfoFileInfos {
-		filePath := filepath.Join(dir, fs.opts.FilePathMaker(FilePathMakerOpts{
-			Info: info,
-			File: &fileInfo,
-		}))
+		defaultPath := defaultFilePath(info, &fileInfo)
+		madePath, pathErr := fs.opts.FilePathMaker(FilePathMakerOpts{
+			Info:        info,
+			InfoHash:    infoHash,
+			File:        &fileInfo,
+			FileIndex:   i,
+			DefaultPath: defaultPath,
+		})
+		if pathErr != nil {
+			err = fmt.Errorf("file %v: making path: %w", i, pathErr)
+			return
+		}
+		filePath := filepath.Join(dir, madePath)
 		if !isSubFilepath(dir, filePath) {
 			err = fmt.Errorf("file %v: path %q is not sub path of %q", i, filePath, dir)
 			return

@@ -60,8 +60,8 @@ func serve() (cmd bargle.Command) {
 				InfoHash: ih,
 				Storage: storage.NewFileOpts(storage.NewFileClientOpts{
 					ClientBaseDir: filePath,
-					FilePathMaker: func(opts storage.FilePathMakerOpts) string {
-						return filepath.Join(opts.File.BestPath()...)
+					FilePathMaker: func(opts storage.FilePathMakerOpts) (string, error) {
+						return filepath.Join(opts.File.BestPath()...), nil
 					},
 					TorrentDirMaker: nil,
 					PieceCompletion: pc,

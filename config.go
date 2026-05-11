@@ -8,10 +8,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/anacrolix/dht/v2"
-	"github.com/anacrolix/dht/v2/krpc"
 	"github.com/anacrolix/log"
 	"github.com/anacrolix/missinggo/v2"
+	"github.com/wchen99998/dht/v2"
+	"github.com/wchen99998/dht/v2/krpc"
 
 	"github.com/pion/webrtc/v4"
 	"golang.org/x/time/rate"
@@ -273,7 +273,11 @@ func NewDefaultClientConfig() *ClientConfig {
 	}
 	cc.PeriodicallyAnnounceTorrentsToDht = true
 	cc.MetainfoSourcesMerger = func(t *Torrent, info *metainfo.MetaInfo) error {
-		return t.MergeSpec(TorrentSpecFromMetaInfo(info))
+		spec, err := TorrentSpecFromMetaInfo(info)
+		if err != nil {
+			return err
+		}
+		return t.MergeSpec(spec)
 	}
 	return cc
 }

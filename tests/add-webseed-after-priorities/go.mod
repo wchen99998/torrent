@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/go-quicktest/qt v1.101.0
-	github.com/wchen99998/torrent v0.0.0
+	github.com/wchen99998/torrent v1.54.0
 )
 
 replace github.com/wchen99998/torrent => ../..
@@ -14,7 +14,6 @@ require (
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
 	github.com/anacrolix/btree v0.1.1 // indirect
 	github.com/anacrolix/chansync v0.7.0 // indirect
-	github.com/anacrolix/dht/v2 v2.23.0 // indirect
 	github.com/anacrolix/envpprof v1.4.0 // indirect
 	github.com/anacrolix/generics v0.2.0 // indirect
 	github.com/anacrolix/go-libutp v1.3.2 // indirect
@@ -26,7 +25,6 @@ require (
 	github.com/anacrolix/multiless v0.4.0 // indirect
 	github.com/anacrolix/stm v0.5.0 // indirect
 	github.com/anacrolix/sync v0.5.5-0.20251119100342-d78dd1f686f1 // indirect
-	github.com/anacrolix/torrent v1.48.1-0.20230103142631-c20f73d53e9f // indirect
 	github.com/anacrolix/upnp v0.1.4 // indirect
 	github.com/anacrolix/utp v0.1.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
@@ -78,6 +76,7 @@ require (
 	github.com/rs/dnscache v0.0.0-20211102005908-e0241e321417 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/tidwall/btree v1.8.1 // indirect
+	github.com/wchen99998/dht/v2 v2.24.0 // indirect
 	github.com/wlynxg/anet v0.0.3 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

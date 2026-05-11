@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anacrolix/dht/v2/krpc"
+	"github.com/wchen99998/dht/v2/krpc"
 	_ "github.com/anacrolix/envpprof"
 	"github.com/anacrolix/missinggo/v2/iter"
 	qt "github.com/go-quicktest/qt"

@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/anacrolix/dht/v2/krpc"
+	"github.com/wchen99998/dht/v2/krpc"
 	"github.com/stretchr/testify/require"
 
 	"github.com/wchen99998/torrent/bencode"

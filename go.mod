@@ -9,7 +9,6 @@ require (
 	github.com/anacrolix/bargle/v2 v2.0.0
 	github.com/anacrolix/btree v0.1.1
 	github.com/anacrolix/chansync v0.7.0
-	github.com/anacrolix/dht/v2 v2.23.0
 	github.com/anacrolix/envpprof v1.4.0
 	github.com/anacrolix/generics v0.2.0
 	github.com/anacrolix/go-libutp v1.3.2
@@ -22,7 +21,6 @@ require (
 	github.com/anacrolix/squirrel v0.6.4
 	github.com/anacrolix/sync v0.5.5-0.20251119100342-d78dd1f686f1
 	github.com/anacrolix/tagflag v1.3.0
-	github.com/anacrolix/torrent v1.48.1-0.20230103142631-c20f73d53e9f
 	github.com/anacrolix/upnp v0.1.4
 	github.com/anacrolix/utp v0.1.0
 	github.com/bahlo/generic-list-go v0.2.0
@@ -48,6 +46,7 @@ require (
 	github.com/protolambda/ctxlock v0.1.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/btree v1.8.1
+	github.com/wchen99998/dht/v2 v2.24.0
 	go.etcd.io/bbolt v1.3.6
 	go.opentelemetry.io/otel v1.38.0
 	go.opentelemetry.io/otel/trace v1.38.0
@@ -145,6 +144,7 @@ require (
 	golang.org/x/crypto v0.44.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
+	google.golang.org/genproto v0.0.0-20251124214823-79d6a2a48846
 	google.golang.org/genproto/googleapis/api v0.0.0-20251124214823-79d6a2a48846 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251124214823-79d6a2a48846 // indirect
 	google.golang.org/grpc v1.77.0 // indirect

@@ -5,9 +5,9 @@ import (
 	"io"
 	"net"
 
-	"github.com/anacrolix/dht/v2"
-	"github.com/anacrolix/dht/v2/krpc"
-	peer_store "github.com/anacrolix/dht/v2/peer-store"
+	"github.com/wchen99998/dht/v2"
+	"github.com/wchen99998/dht/v2/krpc"
+	peer_store "github.com/wchen99998/dht/v2/peer-store"
 	"github.com/davecgh/go-spew/spew"
 )
 

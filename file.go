@@ -1,6 +1,7 @@
 package torrent
 
 import (
+	"context"
 	"iter"
 
 	"github.com/RoaringBitmap/roaring/v2"
@@ -29,6 +30,49 @@ func (f *File) String() string {
 
 func (f *File) Torrent() *Torrent {
 	return f.t
+}
+
+// Index returns the file's zero-based index in Torrent.Files.
+func (f *File) Index() int {
+	return f.index
+}
+
+// Completed returns the number of bytes completed for this file.
+func (f *File) Completed() int64 {
+	return f.BytesCompleted()
+}
+
+// WaitComplete waits until the file is complete, the context is cancelled, or
+// the torrent is closed. It does not change file or piece priorities.
+func (f *File) WaitComplete(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			f.t.cl.lock()
+			f.t.cl.event.Broadcast()
+			f.t.cl.unlock()
+		case <-done:
+		}
+	}()
+	defer close(done)
+	f.t.cl.lock()
+	defer f.t.cl.unlock()
+	for {
+		if f.bytesCompletedLocked() >= f.length {
+			return nil
+		}
+		if f.t.closed.IsSet() {
+			return errTorrentClosed
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		f.t.cl.event.Wait()
+	}
 }
 
 // ReleaseStorage releases storage for a file that has been completed and handed

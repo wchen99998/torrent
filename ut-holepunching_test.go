@@ -47,7 +47,7 @@ func TestHolepunchConnect(t *testing.T) {
 	require.NoError(t, err)
 	defer seeder.Close()
 	defer testutil.ExportStatusWriter(seeder, "s", t)()
-	seederTorrent, ok, err := seeder.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	seederTorrent, ok, err := seeder.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 	require.NoError(t, err)
 	assert.True(t, ok)
 	seederTorrent.VerifyData()
@@ -79,7 +79,7 @@ func TestHolepunchConnect(t *testing.T) {
 	defer leecherLeecher.Close()
 	defer testutil.ExportStatusWriter(leecherLeecher, "ll", t)()
 	leecherGreeting, ok, err := leecher.AddTorrentSpec(func() (ret *TorrentSpec) {
-		ret = TorrentSpecFromMetaInfo(mi)
+		ret = MustTorrentSpecFromMetaInfo(mi)
 		ret.ChunkSize = 2
 		return
 	}())
@@ -87,7 +87,7 @@ func TestHolepunchConnect(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, ok)
 	llg, ok, err := leecherLeecher.AddTorrentSpec(func() (ret *TorrentSpec) {
-		ret = TorrentSpecFromMetaInfo(mi)
+		ret = MustTorrentSpecFromMetaInfo(mi)
 		ret.ChunkSize = 3
 		return
 	}())

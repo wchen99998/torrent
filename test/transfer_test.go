@@ -150,7 +150,7 @@ func testSeedAfterDownloading(t *testing.T, disableUtp bool) {
 	require.NoError(t, err)
 	defer seeder.Close()
 	defer testutil.ExportStatusWriter(seeder, "s", t)()
-	seederTorrent, ok, err := seeder.AddTorrentSpec(torrent.TorrentSpecFromMetaInfo(mi))
+	seederTorrent, ok, err := seeder.AddTorrentSpec(torrent.MustTorrentSpecFromMetaInfo(mi))
 	require.NoError(t, err)
 	assert.True(t, ok)
 	seederTorrent.VerifyDataContext(context.TODO())
@@ -183,14 +183,14 @@ func testSeedAfterDownloading(t *testing.T, disableUtp bool) {
 	defer leecherLeecher.Close()
 	defer testutil.ExportStatusWriter(leecherLeecher, "ll", t)()
 	leecherGreeting, ok, err := leecher.AddTorrentSpec(func() (ret *torrent.TorrentSpec) {
-		ret = torrent.TorrentSpecFromMetaInfo(mi)
+		ret = torrent.MustTorrentSpecFromMetaInfo(mi)
 		ret.ChunkSize = 2
 		return
 	}())
 	require.NoError(t, err)
 	assert.True(t, ok)
 	llg, ok, err := leecherLeecher.AddTorrentSpec(func() (ret *torrent.TorrentSpec) {
-		ret = torrent.TorrentSpecFromMetaInfo(mi)
+		ret = torrent.MustTorrentSpecFromMetaInfo(mi)
 		ret.ChunkSize = 3
 		return
 	}())

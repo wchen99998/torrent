@@ -90,9 +90,9 @@ func TestDiscovery(t *testing.T) {
 	greetingTempDir, mi := testutil.GreetingTestTorrent()
 	defer os.RemoveAll(greetingTempDir)
 
-	seederTorrent, _, _ := client1.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	seederTorrent, _, _ := client1.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 	leecherGreeting, _, _ := client2.AddTorrentSpec(func() (ret *TorrentSpec) {
-		ret = TorrentSpecFromMetaInfo(mi)
+		ret = MustTorrentSpecFromMetaInfo(mi)
 		ret.ChunkSize = 2
 		return
 	}())
@@ -151,7 +151,7 @@ func TestPeerAddedToAllTorrents(t *testing.T) {
 	greetingTempDir, mi := testutil.GreetingTestTorrent()
 	defer os.RemoveAll(greetingTempDir)
 
-	greetingTorrent, _, _ := cl.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	greetingTorrent, _, _ := cl.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 	otherSpec := &TorrentSpec{}
 	copy(otherSpec.InfoHash[:], "other-torrent-lpd-test-00000")
 	otherTorrent, _, _ := cl.AddTorrentSpec(otherSpec)
@@ -181,7 +181,7 @@ func TestNewTorrentGetsExistingPeers(t *testing.T) {
 	greetingTempDir, mi := testutil.GreetingTestTorrent()
 	defer os.RemoveAll(greetingTempDir)
 
-	greetingTorrent, _, _ := cl.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	greetingTorrent, _, _ := cl.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 
 	// Record an LPD peer before adding the second torrent.
 	peer := &net.UDPAddr{IP: net.IPv4(10, 11, 12, 13), Port: 6881}
@@ -212,7 +212,7 @@ func TestReceiverMalformedMessages(t *testing.T) {
 
 	greetingTempDir, mi := testutil.GreetingTestTorrent()
 	defer os.RemoveAll(greetingTempDir)
-	tor, _, _ := cl.AddTorrentSpec(TorrentSpecFromMetaInfo(mi))
+	tor, _, _ := cl.AddTorrentSpec(MustTorrentSpecFromMetaInfo(mi))
 
 	from := &net.UDPAddr{IP: net.IPv4(1, 2, 3, 4), Port: 6881}
 	msgs := []string{
