@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	g "github.com/anacrolix/generics"
 	"github.com/stretchr/testify/assert"
@@ -57,13 +58,18 @@ func TestFilesSelectedIndexesAndMaxActive(t *testing.T) {
 	}, func(ctx context.Context, lease *FileLease) error {
 		got = append(got, lease.Index)
 		snapshots := tor.FileSnapshots()
+		active := 0
 		for _, snapshot := range snapshots {
-			if snapshot.Index == lease.Index {
-				assert.NotEqual(t, torrent.PiecePriorityNone, snapshot.Priority)
-			} else {
+			switch snapshot.Index {
+			case 0, 2:
+				if snapshot.Priority != torrent.PiecePriorityNone {
+					active++
+				}
+			default:
 				assert.Equal(t, torrent.PiecePriorityNone, snapshot.Priority)
 			}
 		}
+		assert.LessOrEqual(t, active, 1)
 		_, err := io.Copy(io.Discard, lease.Reader)
 		if err != nil {
 			return err
@@ -72,6 +78,51 @@ func TestFilesSelectedIndexesAndMaxActive(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, []int{0, 2}, got)
+}
+
+func TestFilesHandlesCompletedFilesOutOfOrder(t *testing.T) {
+	baseDir := t.TempDir()
+	spec := testutil.Torrent{
+		Name: "payload",
+		Files: []testutil.File{
+			{Name: "a.bin", Data: "aa"},
+			{Name: "b.bin", Data: "bb"},
+		},
+	}
+	mi, _ := spec.Generate(2)
+	require.NoError(t, os.MkdirAll(filepath.Join(baseDir, "payload"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(baseDir, "payload", "b.bin"), []byte("bb"), 0o666))
+	cfg := torrent.TestingConfig(t)
+	cfg.DataDir = baseDir
+	cfg.DefaultStorage = storage.NewFileOpts(storage.NewFileClientOpts{
+		ClientBaseDir:      baseDir,
+		UsePartFiles:       g.Some(false),
+		ForceClassicFileIO: true,
+	})
+	cl, err := torrent.NewClient(cfg)
+	require.NoError(t, err)
+	t.Cleanup(func() { cl.Close() })
+	tor, err := cl.AddTorrent(&mi)
+	require.NoError(t, err)
+	require.NoError(t, tor.VerifyData())
+	require.EqualValues(t, 0, tor.Files()[0].Completed())
+	require.EqualValues(t, 2, tor.Files()[1].Completed())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var got []int
+	err = Files(ctx, tor, FilesOptions{
+		FileIndexes: []int{0, 1},
+		MaxActive:   2,
+	}, func(ctx context.Context, lease *FileLease) error {
+		got = append(got, lease.Index)
+		require.Equal(t, 1, lease.Index)
+		require.NoError(t, lease.Release(context.Background()))
+		cancel()
+		return nil
+	})
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, []int{1}, got)
 }
 
 func TestFilesNoSelectedFiles(t *testing.T) {
@@ -94,6 +145,47 @@ func TestFilesAutoRelease(t *testing.T) {
 	require.NoError(t, err)
 	_, err = os.Stat(filepath.Join(baseDir, "payload", "a.bin"))
 	assert.True(t, errors.Is(err, os.ErrNotExist), "expected auto-released file to be removed")
+}
+
+type testReadCloser struct {
+	closeErr error
+}
+
+func (r testReadCloser) Read([]byte) (int, error) {
+	return 0, io.EOF
+}
+
+func (r testReadCloser) Close() error {
+	return r.closeErr
+}
+
+func TestFileLeaseReleaseRetryAfterCloseError(t *testing.T) {
+	_, tor, _ := newCompletedTorrent(t)
+	lease := newLease(context.Background(), tor.Files()[0], 0)
+	closeErr := errors.New("close error")
+	lease.Reader = testReadCloser{closeErr: closeErr}
+
+	err := lease.Release(context.Background())
+	require.ErrorIs(t, err, closeErr)
+	assert.False(t, lease.wasFinalized())
+
+	lease.Reader = testReadCloser{}
+	require.NoError(t, lease.Release(context.Background()))
+	assert.True(t, lease.wasFinalized())
+}
+
+func TestFileLeaseReleaseRetryAfterCanceledContext(t *testing.T) {
+	_, tor, _ := newCompletedTorrent(t)
+	lease := newLease(context.Background(), tor.Files()[0], 0)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := lease.Release(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+	assert.False(t, lease.wasFinalized())
+
+	require.NoError(t, lease.Release(context.Background()))
+	assert.True(t, lease.wasFinalized())
 }
 
 func TestFilesExplicitDiscard(t *testing.T) {

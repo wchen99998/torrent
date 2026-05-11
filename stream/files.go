@@ -44,24 +44,30 @@ func (l *FileLease) finalize(ctx context.Context, discard bool) error {
 		ctx = context.Background()
 	}
 	l.mu.Lock()
+	defer l.mu.Unlock()
 	if l.finalized {
-		l.mu.Unlock()
 		return nil
 	}
-	l.finalized = true
-	l.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
-	var closeErr error
 	if l.Reader != nil {
-		closeErr = l.Reader.Close()
+		if err := l.Reader.Close(); err != nil {
+			return err
+		}
 	}
-	var storageErr error
+	var err error
 	if discard {
-		storageErr = l.File.DiscardStorage()
+		err = l.File.DiscardStorage()
 	} else {
-		storageErr = l.File.ReleaseStorage()
+		err = l.File.ReleaseStorage()
 	}
-	return errors.Join(ctx.Err(), closeErr, storageErr)
+	if err != nil {
+		return err
+	}
+	l.finalized = true
+	return nil
 }
 
 type FilesOptions struct {
@@ -100,34 +106,66 @@ func Files(
 	if maxActive <= 0 || maxActive > len(files) {
 		maxActive = len(files)
 	}
-	for begin := 0; begin < len(files); begin += maxActive {
-		end := begin + maxActive
-		if end > len(files) {
-			end = len(files)
-		}
-		batch := files[begin:end]
-		for _, f := range batch {
-			f.Download()
-		}
-		for _, f := range batch {
-			if err := f.WaitComplete(ctx); err != nil {
-				cancelFiles(batch)
-				return err
+	waitCtx, cancelWaits := context.WithCancel(ctx)
+	defer cancelWaits()
+	results := make(chan fileResult, maxActive)
+	var wg sync.WaitGroup
+	active := make(map[*torrent.File]struct{}, maxActive)
+	next := 0
+	startNext := func() {
+		f := files[next]
+		next++
+		active[f] = struct{}{}
+		f.Download()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			results <- fileResult{
+				file: f,
+				err:  f.WaitComplete(waitCtx),
 			}
-			lease := newLease(ctx, f, opts.Readahead)
-			handlerErr := h(ctx, lease)
-			var finalizeErr error
-			if !lease.wasFinalized() {
-				finalizeErr = lease.Release(context.Background())
-			}
-			f.SetPriority(torrent.PiecePriorityNone)
-			if err := errors.Join(handlerErr, finalizeErr); err != nil {
-				cancelFiles(batch)
-				return err
-			}
+		}()
+	}
+	startUntilFull := func() {
+		for len(active) < maxActive && next < len(files) {
+			startNext()
 		}
 	}
+	cancelActive := func() {
+		cancelWaits()
+		for f := range active {
+			f.SetPriority(torrent.PiecePriorityNone)
+		}
+		wg.Wait()
+	}
+	startUntilFull()
+	for len(active) != 0 {
+		result := <-results
+		delete(active, result.file)
+		result.file.SetPriority(torrent.PiecePriorityNone)
+		if result.err != nil {
+			cancelActive()
+			return result.err
+		}
+		startUntilFull()
+		lease := newLease(ctx, result.file, opts.Readahead)
+		handlerErr := h(ctx, lease)
+		var finalizeErr error
+		if !lease.wasFinalized() {
+			finalizeErr = lease.Release(context.Background())
+		}
+		if err := errors.Join(handlerErr, finalizeErr); err != nil {
+			cancelActive()
+			return err
+		}
+	}
+	wg.Wait()
 	return nil
+}
+
+type fileResult struct {
+	file *torrent.File
+	err  error
 }
 
 func newLease(ctx context.Context, f *torrent.File, readahead int64) *FileLease {
@@ -170,10 +208,4 @@ func selectFiles(files []*torrent.File, indexes []int) ([]*torrent.File, error) 
 		}
 	}
 	return ret, nil
-}
-
-func cancelFiles(files []*torrent.File) {
-	for _, f := range files {
-		f.SetPriority(torrent.PiecePriorityNone)
-	}
 }

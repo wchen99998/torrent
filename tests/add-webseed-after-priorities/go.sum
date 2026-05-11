@@ -330,8 +330,8 @@ github.com/tidwall/btree v1.8.1/go.mod h1:jBbTdUWhSZClZWoDg54VnvV7/54modSOzDN7VX
 github.com/tinylib/msgp v1.0.2/go.mod h1:+d+yLhGm8mzTaHzB+wgMYrodPfmZrzkirds8fDWklFE=
 github.com/tinylib/msgp v1.1.0/go.mod h1:+d+yLhGm8mzTaHzB+wgMYrodPfmZrzkirds8fDWklFE=
 github.com/tinylib/msgp v1.1.2/go.mod h1:+d+yLhGm8mzTaHzB+wgMYrodPfmZrzkirds8fDWklFE=
-github.com/wchen99998/dht/v2 v2.24.1 h1:q3/bkoFDGNNf3NDWfb17x3uHzB/SXO0eiWe0EiUCR40=
-github.com/wchen99998/dht/v2 v2.24.1/go.mod h1:8eRNyyni26w04h7sPopIiyRdggg+yhGd7Sv4tPDCu4U=
+github.com/wchen99998/dht/v2 v2.24.2 h1:D94uuhyg4tSQlWoBapJlXs4yszucB5J/i5EtKa21lSA=
+github.com/wchen99998/dht/v2 v2.24.2/go.mod h1:pghmI39D0rGDmRdCVhj+4p7K8LFsm8mAP2XvZXPMFUc=
 github.com/willf/bitset v1.1.9/go.mod h1:RjeCKbqT1RxIR/KWY6phxZiaY1IyutSBfGjNPySAYV4=
 github.com/willf/bitset v1.1.10/go.mod h1:RjeCKbqT1RxIR/KWY6phxZiaY1IyutSBfGjNPySAYV4=
 github.com/wlynxg/anet v0.0.3 h1:PvR53psxFXstc12jelG6f1Lv4MWqE0tI76/hHGjh9rg=

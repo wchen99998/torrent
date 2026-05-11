@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/go-quicktest/qt v1.101.0
-	github.com/wchen99998/torrent v1.54.1
+	github.com/wchen99998/torrent v1.54.2
 )
 
 replace github.com/wchen99998/torrent => ../..
@@ -76,7 +76,7 @@ require (
 	github.com/rs/dnscache v0.0.0-20211102005908-e0241e321417 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/tidwall/btree v1.8.1 // indirect
-	github.com/wchen99998/dht/v2 v2.24.1 // indirect
+	github.com/wchen99998/dht/v2 v2.24.2 // indirect
 	github.com/wlynxg/anet v0.0.3 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
