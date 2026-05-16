@@ -15,6 +15,7 @@ import (
 	"maps"
 	"math"
 	"math/rand"
+	"net/http"
 	"net/netip"
 	"net/url"
 	"slices"
@@ -3153,7 +3154,42 @@ func (t *Torrent) callbacks() *Callbacks {
 
 type AddWebSeedsOpt func(*webseed.Client)
 
-// TODO: Add a webseed http.Client option.
+// Sets the HTTP client for a webseed.Client.
+func WebSeedHttpClient(hc *http.Client) AddWebSeedsOpt {
+	return func(c *webseed.Client) {
+		c.HttpClient = hc
+	}
+}
+
+// Adds headers to each webseed request. Headers set here replace any existing configured values
+// for the same keys.
+func WebSeedRequestHeader(header http.Header) AddWebSeedsOpt {
+	return func(c *webseed.Client) {
+		if c.RequestHeader == nil {
+			c.RequestHeader = make(http.Header)
+		}
+		for key, values := range header {
+			c.RequestHeader.Del(key)
+			for _, value := range values {
+				c.RequestHeader.Add(key, value)
+			}
+		}
+	}
+}
+
+// Sets the User-Agent header for webseed requests.
+func WebSeedUserAgent(userAgent string) AddWebSeedsOpt {
+	return func(c *webseed.Client) {
+		c.UserAgent = userAgent
+	}
+}
+
+// Sets a function that modifies each webseed request before it's sent.
+func WebSeedHttpRequestDirector(f func(*http.Request) error) AddWebSeedsOpt {
+	return func(c *webseed.Client) {
+		c.HttpRequestDirector = f
+	}
+}
 
 // Sets the WebSeed trailing path escaper for a webseed.Client.
 func WebSeedPathEscaper(custom webseed.PathEscaper) AddWebSeedsOpt {
@@ -3205,8 +3241,11 @@ func (t *Torrent) addWebSeed(url string, opts ...AddWebSeedsOpt) bool {
 			callbacks:  t.callbacks(),
 		},
 		client: webseed.Client{
-			HttpClient:              t.cl.httpClient,
+			HttpClient:              t.cl.config.WebseedHttpClient,
 			Url:                     url,
+			RequestHeader:           t.cl.config.WebseedRequestHeader.Clone(),
+			UserAgent:               t.cl.config.HTTPUserAgent,
+			HttpRequestDirector:     t.cl.config.HttpRequestDirector,
 			MaxRequests:             defaultMaxRequests,
 			ResponseBodyRateLimiter: t.cl.config.DownloadRateLimiter,
 		},

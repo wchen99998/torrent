@@ -139,6 +139,11 @@ type ClientConfig struct {
 	// HttpRequestDirector modifies the request before it's sent.
 	// Useful for adding authentication headers, for example
 	HttpRequestDirector func(*http.Request) error
+	// Used for webseed requests only. Falls back to the http.Client created to wrap WebTransport.
+	WebseedHttpClient *http.Client
+	// Additional headers added to every webseed request before HTTPUserAgent and HttpRequestDirector
+	// are applied.
+	WebseedRequestHeader http.Header
 	// WebsocketTrackerHttpHeader returns a custom header to be used when dialing a websocket connection
 	// to the tracker. Useful for adding authentication headers
 	WebsocketTrackerHttpHeader func() http.Header

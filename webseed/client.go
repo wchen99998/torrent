@@ -72,6 +72,11 @@ type Client struct {
 	Logger     *slog.Logger
 	HttpClient *http.Client
 	Url        string
+	// Headers copied onto each request before UserAgent and HttpRequestDirector are applied.
+	RequestHeader http.Header
+	UserAgent     string
+	// HttpRequestDirector modifies each request before it's sent.
+	HttpRequestDirector func(*http.Request) error
 	// Max concurrent requests to a WebSeed for a given torrent. TODO: Unused.
 	MaxRequests int
 
@@ -127,7 +132,10 @@ func (ws *Client) StartNewRequest(ctx context.Context, r RequestSpec, debugLogge
 			fileIndex:  i,
 		}
 		part.do = func() (resp *http.Response, err error) {
-			resp, err = ws.HttpClient.Do(req)
+			if err = ws.prepareRequest(req); err != nil {
+				return
+			}
+			resp, err = ws.httpClient().Do(req)
 			if PrintDebug {
 				if err == nil {
 					debugLogger.Debug(
@@ -157,6 +165,31 @@ func (ws *Client) StartNewRequest(ctx context.Context, r RequestSpec, debugLogge
 	}
 	go ws.requestPartResponsesReader(ctx, w, requestParts)
 	return req
+}
+
+func (ws *Client) httpClient() *http.Client {
+	if ws.HttpClient != nil {
+		return ws.HttpClient
+	}
+	return http.DefaultClient
+}
+
+func (ws *Client) prepareRequest(req *http.Request) error {
+	for key, values := range ws.RequestHeader {
+		req.Header.Del(key)
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
+	if ws.UserAgent != "" {
+		req.Header.Set("User-Agent", ws.UserAgent)
+	}
+	if ws.HttpRequestDirector != nil {
+		if err := ws.HttpRequestDirector(req); err != nil {
+			return fmt.Errorf("error modifying webseed HTTP request: %w", err)
+		}
+	}
+	return nil
 }
 
 // Concatenates request part responses and sends them over the pipe.

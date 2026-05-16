@@ -336,6 +336,7 @@ func (cl *Client) init(cfg *ClientConfig) {
 		}
 	}
 	cfg.MetainfoSourcesClient = cmp.Or(cfg.MetainfoSourcesClient, cl.httpClient)
+	cfg.WebseedHttpClient = cmp.Or(cfg.WebseedHttpClient, cl.httpClient)
 	cl.defaultLocalLtepProtocolMap = makeBuiltinLtepProtocols(!cfg.DisablePEX)
 	g.MakeMap(&cl.numWebSeedRequests)
 

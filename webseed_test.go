@@ -1,6 +1,7 @@
 package torrent
 
 import (
+	"bytes"
 	"crypto/rand"
 	"io"
 	"net/http"
@@ -8,11 +9,18 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/go-quicktest/qt"
 
 	"github.com/wchen99998/torrent/internal/testutil"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 // Tests that the client can download a multi-file torrent from two webseeds simultaneously when
 // each webseed only has one of the two files (non-overlapping data). When a webseed receives a 404
@@ -74,4 +82,160 @@ func TestDownloadFromTwoNonOverlappingWebseeds(t *testing.T) {
 	got, err := io.ReadAll(r)
 	qt.Assert(t, qt.IsNil(err))
 	qt.Assert(t, qt.DeepEquals(got, append(dataA, dataB...)))
+}
+
+func TestWebseedHTTPCustomizationFromClientConfig(t *testing.T) {
+	data := []byte("webseed http customization from client config")
+	srv, headers := newRecordingWebseedServer(data)
+	defer srv.Close()
+
+	cfg := TestingConfig(t)
+	cfg.HTTPUserAgent = "torrent-webseed-config-test"
+	cfg.WebseedRequestHeader = http.Header{
+		"X-Webseed-Header": {"client-config"},
+	}
+	cfg.HttpRequestDirector = func(req *http.Request) error {
+		req.Header.Set("X-Webseed-Director", "client-config")
+		return nil
+	}
+	cfg.WebseedHttpClient = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			req.Header.Set("X-Webseed-Http-Client", "client-config")
+			return http.DefaultTransport.RoundTrip(req)
+		}),
+	}
+
+	cl, err := NewClient(cfg)
+	qt.Assert(t, qt.IsNil(err))
+	defer cl.Close()
+
+	tt, _, err := cl.AddTorrentSpec(webseedHTTPTestSpec(data, srv.URL))
+	qt.Assert(t, qt.IsNil(err))
+	tt.DownloadAll()
+	waitAllOrFatal(t, cl)
+	assertTorrentData(t, tt, data)
+
+	header := recordedWebseedHeader(t, headers)
+	qt.Assert(t, qt.Equals(header.Get("User-Agent"), "torrent-webseed-config-test"))
+	qt.Assert(t, qt.Equals(header.Get("X-Webseed-Header"), "client-config"))
+	qt.Assert(t, qt.Equals(header.Get("X-Webseed-Director"), "client-config"))
+	qt.Assert(t, qt.Equals(header.Get("X-Webseed-Http-Client"), "client-config"))
+}
+
+func TestAddWebSeedsHTTPCustomizationOverridesClientConfig(t *testing.T) {
+	data := []byte("webseed http customization from add option")
+	srv, headers := newRecordingWebseedServer(data)
+	defer srv.Close()
+
+	cfg := TestingConfig(t)
+	cfg.HTTPUserAgent = "torrent-webseed-config-test"
+	cfg.WebseedRequestHeader = http.Header{
+		"X-Webseed-Header": {"client-config"},
+	}
+	cfg.HttpRequestDirector = func(req *http.Request) error {
+		req.Header.Set("X-Webseed-Director", "client-config")
+		return nil
+	}
+	cfg.WebseedHttpClient = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			req.Header.Set("X-Webseed-Http-Client", "client-config")
+			return http.DefaultTransport.RoundTrip(req)
+		}),
+	}
+
+	cl, err := NewClient(cfg)
+	qt.Assert(t, qt.IsNil(err))
+	defer cl.Close()
+
+	tt, _, err := cl.AddTorrentSpec(webseedHTTPTestSpec(data))
+	qt.Assert(t, qt.IsNil(err))
+	tt.AddWebSeeds(
+		[]string{srv.URL},
+		WebSeedUserAgent("torrent-webseed-option-test"),
+		WebSeedRequestHeader(http.Header{
+			"X-Webseed-Header": {"add-option"},
+		}),
+		WebSeedHttpRequestDirector(func(req *http.Request) error {
+			req.Header.Set("X-Webseed-Director", "add-option")
+			return nil
+		}),
+		WebSeedHttpClient(&http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				req.Header.Set("X-Webseed-Http-Client", "add-option")
+				return http.DefaultTransport.RoundTrip(req)
+			}),
+		}),
+	)
+	tt.DownloadAll()
+	waitAllOrFatal(t, cl)
+	assertTorrentData(t, tt, data)
+
+	header := recordedWebseedHeader(t, headers)
+	qt.Assert(t, qt.Equals(header.Get("User-Agent"), "torrent-webseed-option-test"))
+	qt.Assert(t, qt.Equals(header.Get("X-Webseed-Header"), "add-option"))
+	qt.Assert(t, qt.Equals(header.Get("X-Webseed-Director"), "add-option"))
+	qt.Assert(t, qt.Equals(header.Get("X-Webseed-Http-Client"), "add-option"))
+}
+
+func newRecordingWebseedServer(data []byte) (*httptest.Server, <-chan http.Header) {
+	headers := make(chan http.Header, 16)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case headers <- r.Header.Clone():
+		default:
+		}
+		http.ServeContent(w, r, "webseed-http-test", time.Now(), bytes.NewReader(data))
+	}))
+	return srv, headers
+}
+
+func webseedHTTPTestSpec(data []byte, webseeds ...string) *TorrentSpec {
+	tu := testutil.Torrent{
+		Name: "webseed-http-test",
+		Files: []testutil.File{{
+			Data: string(data),
+		}},
+	}
+	mi, _ := tu.Generate(int64(len(data)))
+	return &TorrentSpec{
+		AddTorrentOpts: AddTorrentOpts{
+			InfoHash:  mi.HashInfoBytes(),
+			InfoBytes: mi.InfoBytes,
+		},
+		Webseeds: webseeds,
+	}
+}
+
+func waitAllOrFatal(t *testing.T, cl *Client) {
+	t.Helper()
+	done := make(chan bool, 1)
+	go func() {
+		done <- cl.WaitAll()
+	}()
+	select {
+	case ok := <-done:
+		qt.Assert(t, qt.IsTrue(ok))
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for torrent download")
+	}
+}
+
+func assertTorrentData(t *testing.T, tt *Torrent, want []byte) {
+	t.Helper()
+	r := tt.NewReader()
+	defer r.Close()
+	got, err := io.ReadAll(r)
+	qt.Assert(t, qt.IsNil(err))
+	qt.Assert(t, qt.DeepEquals(got, want))
+}
+
+func recordedWebseedHeader(t *testing.T, headers <-chan http.Header) http.Header {
+	t.Helper()
+	select {
+	case header := <-headers:
+		return header
+	default:
+		t.Fatal("no webseed request was recorded")
+		return nil
+	}
 }
