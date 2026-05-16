@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 
 	g "github.com/anacrolix/generics"
 
@@ -43,14 +42,7 @@ func (me NewFileClientOpts) partFiles() bool {
 
 // NewFileOpts creates a new ClientImplCloser that stores files using the OS native filesystem.
 func NewFileOpts(opts NewFileClientOpts) ClientImplCloser {
-	if opts.TorrentDirMaker == nil {
-		opts.TorrentDirMaker = defaultPathMaker
-	}
-	if opts.FilePathMaker == nil {
-		opts.FilePathMaker = func(opts FilePathMakerOpts) (string, error) {
-			return opts.DefaultPath, nil
-		}
-	}
+	opts = withFilePathDefaults(opts)
 	if opts.PieceCompletion == nil {
 		if opts.partFiles() {
 			opts.PieceCompletion = NewMapPieceCompletion()
@@ -73,31 +65,18 @@ func (fs *fileClientImpl) OpenTorrent(
 	info *metainfo.Info,
 	infoHash metainfo.Hash,
 ) (_ TorrentImpl, err error) {
-	dir := fs.opts.TorrentDirMaker(fs.opts.ClientBaseDir, info, infoHash)
-	fs.opts.Logger.DebugContext(ctx, "opened file torrent storage", slog.String("dir", dir))
-	metainfoFileInfos := info.UpvertedFiles()
-	files := make([]fileExtra, len(metainfoFileInfos))
-	for i, fileInfo := range metainfoFileInfos {
-		defaultPath := defaultFilePath(info, &fileInfo)
-		madePath, pathErr := fs.opts.FilePathMaker(FilePathMakerOpts{
-			Info:        info,
-			InfoHash:    infoHash,
-			File:        &fileInfo,
-			FileIndex:   i,
-			DefaultPath: defaultPath,
-		})
-		if pathErr != nil {
-			err = fmt.Errorf("file %v: making path: %w", i, pathErr)
-			return
-		}
-		filePath := filepath.Join(dir, madePath)
-		if !isSubFilepath(dir, filePath) {
-			err = fmt.Errorf("file %v: path %q is not sub path of %q", i, filePath, dir)
-			return
-		}
-		files[i].safeOsPath = filePath
-		if metainfoFileInfos[i].Length == 0 {
-			err = CreateNativeZeroLengthFile(filePath)
+	plan, err := PlanFiles(fs.opts, info, infoHash)
+	if err != nil {
+		return TorrentImpl{}, err
+	}
+	fs.opts.Logger.DebugContext(ctx, "opened file torrent storage", slog.String("dir", plan.TorrentDir))
+	files := make([]fileExtra, len(plan.Files))
+	metainfoFileInfos := make([]metainfo.FileInfo, len(plan.Files))
+	for i, filePlan := range plan.Files {
+		files[i].safeOsPath = filePlan.StoragePath
+		metainfoFileInfos[i] = filePlan.FileInfo
+		if filePlan.Length == 0 {
+			err = CreateNativeZeroLengthFile(filePlan.StoragePath)
 			if err != nil {
 				err = fmt.Errorf("creating zero length file: %w", err)
 				return
@@ -126,6 +105,7 @@ func (fs *fileClientImpl) OpenTorrent(
 		Close:             t.Close,
 		MarkFileReleased:  t.markFileReleased,
 		MarkFileDiscarded: t.markFileDiscarded,
+		FileState:         t.fileState,
 	}, nil
 }
 

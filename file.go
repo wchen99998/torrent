@@ -8,6 +8,7 @@ import (
 	g "github.com/anacrolix/generics"
 
 	"github.com/wchen99998/torrent/metainfo"
+	"github.com/wchen99998/torrent/storage"
 	infohash_v2 "github.com/wchen99998/torrent/types/infohash-v2"
 )
 
@@ -149,6 +150,24 @@ func (f *File) DiscardStorage() error {
 	}
 	f.t.cl.unlock()
 	return nil
+}
+
+// StorageState returns lifecycle state reported by the torrent storage backend.
+func (f *File) StorageState() (storage.FileState, error) {
+	f.t.storageLock.RLock()
+	st := f.t.storage
+	f.t.storageLock.RUnlock()
+	if st == nil {
+		return storage.FileState{}, errTorrentClosed
+	}
+	return st.FileState(f.index)
+}
+
+// Released reports whether storage for this file has been finalized and
+// intentionally removed while preserving completion.
+func (f *File) Released() bool {
+	state, err := f.StorageState()
+	return err == nil && state.Released
 }
 
 // Data for this file begins this many bytes into the Torrent.

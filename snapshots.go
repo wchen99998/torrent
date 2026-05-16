@@ -14,6 +14,7 @@ type FileSnapshot struct {
 	Length      int64
 	Completed   int64
 	Priority    PiecePriority
+	Released    bool
 	FileInfo    metainfo.FileInfo
 }
 
@@ -46,6 +47,7 @@ func (t *Torrent) FileSnapshots() []FileSnapshot {
 		fi := f.fi
 		fi.Path = append([]string(nil), fi.Path...)
 		fi.PathUtf8 = append([]string(nil), fi.PathUtf8...)
+		state, _ := f.StorageState()
 		ret = append(ret, FileSnapshot{
 			Index:       f.index,
 			Path:        f.path,
@@ -53,6 +55,7 @@ func (t *Torrent) FileSnapshots() []FileSnapshot {
 			Length:      f.length,
 			Completed:   f.bytesCompletedLocked(),
 			Priority:    f.prio,
+			Released:    state.Released,
 			FileInfo:    fi,
 		})
 	}

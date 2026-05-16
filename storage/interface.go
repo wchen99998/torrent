@@ -27,6 +27,10 @@ type ClientImpl interface {
 // though.
 type TorrentCapacity *func() (cap int64, capped bool)
 
+type FileState struct {
+	Released bool
+}
+
 // Data storage bound to a torrent.
 type TorrentImpl struct {
 	// v2 infos might not have the piece hash available even if we have the info. The
@@ -50,6 +54,9 @@ type TorrentImpl struct {
 	// MarkFileDiscarded releases storage for the file at this torrent file
 	// index and marks affected pieces incomplete.
 	MarkFileDiscarded func(fileIndex int) error
+	// FileState returns storage lifecycle state for the file at this torrent
+	// file index.
+	FileState func(fileIndex int) (FileState, error)
 }
 
 // Interacts with torrent piece data. Optional interfaces to implement include://

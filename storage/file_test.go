@@ -108,6 +108,85 @@ func TestFilePathMakerOptsAndErrors(t *testing.T) {
 	qt.Check(t, qt.Equals(seen[1].DefaultPath, filepath.Join("payload", "dir", "b.bin")))
 }
 
+func TestPlanFilesUsesStoragePathOptions(t *testing.T) {
+	td := t.TempDir()
+	infoHash := metainfo.Hash{1, 2, 3}
+	info := &metainfo.Info{
+		Name:        "payload",
+		PieceLength: 4,
+		Pieces:      make([]byte, 40),
+		Files: []metainfo.FileInfo{
+			{Path: []string{"a.bin"}, Length: 2},
+			{Path: []string{"dir", "b.bin"}, Length: 6},
+		},
+	}
+	plan, err := PlanFiles(NewFileClientOpts{
+		ClientBaseDir:   td,
+		TorrentDirMaker: InfoHashPathMaker,
+		FilePathMaker: func(opts FilePathMakerOpts) (string, error) {
+			return filepath.Join("custom", opts.File.BestPath()[0]), nil
+		},
+	}, info, infoHash)
+	qt.Assert(t, qt.IsNil(err))
+	qt.Check(t, qt.Equals(plan.TorrentDir, filepath.Join(td, infoHash.HexString())))
+	qt.Assert(t, qt.HasLen(plan.Files, 2))
+	qt.Check(t, qt.Equals(plan.Files[0].Index, 0))
+	qt.Check(t, qt.Equals(plan.Files[0].Path, "payload/a.bin"))
+	qt.Check(t, qt.Equals(plan.Files[0].DisplayPath, "a.bin"))
+	qt.Check(t, qt.Equals(plan.Files[0].DefaultPath, filepath.Join("payload", "a.bin")))
+	qt.Check(t, qt.Equals(plan.Files[0].StorageRelativePath, filepath.Join("custom", "a.bin")))
+	qt.Check(t, qt.Equals(plan.Files[0].StoragePath, filepath.Join(td, infoHash.HexString(), "custom", "a.bin")))
+	qt.Check(t, qt.Equals(plan.Files[0].Length, int64(2)))
+	qt.Check(t, qt.Equals(plan.Files[0].TorrentOffset, int64(0)))
+	qt.Check(t, qt.Equals(plan.Files[0].BeginPieceIndex, 0))
+	qt.Check(t, qt.Equals(plan.Files[0].EndPieceIndex, 1))
+	qt.Check(t, qt.DeepEquals(plan.Files[0].FileInfo.BestPath(), []string{"a.bin"}))
+	qt.Check(t, qt.Equals(plan.Files[1].Index, 1))
+	qt.Check(t, qt.Equals(plan.Files[1].TorrentOffset, int64(2)))
+	qt.Check(t, qt.Equals(plan.Files[1].EndPieceIndex, 2))
+	plan.Files[0].FileInfo.Path[0] = "mutated"
+	qt.Check(t, qt.DeepEquals(info.Files[0].Path, []string{"a.bin"}))
+}
+
+func TestPlanFilesRejectsEscapesAfterCustomMaker(t *testing.T) {
+	td := t.TempDir()
+	info := &metainfo.Info{
+		Name:        "payload",
+		Length:      1,
+		PieceLength: 1,
+		Pieces:      make([]byte, 20),
+	}
+	_, err := PlanFiles(NewFileClientOpts{
+		ClientBaseDir: td,
+		FilePathMaker: func(opts FilePathMakerOpts) (string, error) {
+			return filepath.Join("..", "escape"), nil
+		},
+	}, info, metainfo.Hash{})
+	qt.Check(t, qt.ErrorMatches(err, `file 0: path ".*escape" is not sub path of ".*"`))
+}
+
+func TestPlanFilesDoesNotOpenStorage(t *testing.T) {
+	td := t.TempDir()
+	info := &metainfo.Info{
+		Name:        "empty",
+		Length:      0,
+		PieceLength: 1,
+	}
+	plan, err := PlanFiles(NewFileClientOpts{ClientBaseDir: td}, info, metainfo.Hash{})
+	qt.Assert(t, qt.IsNil(err))
+	qt.Assert(t, qt.HasLen(plan.Files, 1))
+	_, err = os.Stat(plan.Files[0].StoragePath)
+	qt.Check(t, qt.IsTrue(errors.Is(err, os.ErrNotExist)))
+
+	s := NewFileOpts(NewFileClientOpts{ClientBaseDir: td})
+	defer s.Close()
+	ts, err := s.OpenTorrent(context.Background(), info, metainfo.Hash{})
+	qt.Assert(t, qt.IsNil(err))
+	defer ts.Close()
+	_, err = os.Stat(plan.Files[0].StoragePath)
+	qt.Check(t, qt.IsNil(err))
+}
+
 func TestFilePathMakerRejectsEscapesAfterCustomMaker(t *testing.T) {
 	td := t.TempDir()
 	info := &metainfo.Info{
@@ -125,6 +204,37 @@ func TestFilePathMakerRejectsEscapesAfterCustomMaker(t *testing.T) {
 	defer s.Close()
 	_, err := s.OpenTorrent(context.Background(), info, metainfo.Hash{})
 	qt.Check(t, qt.ErrorMatches(err, `file 0: path ".*escape" is not sub path of ".*"`))
+}
+
+func TestFileStateTracksReleaseAndDiscard(t *testing.T) {
+	td := t.TempDir()
+	info := &metainfo.Info{
+		Name:        "payload",
+		Length:      4,
+		PieceLength: 4,
+		Pieces:      make([]byte, 20),
+	}
+	s := NewFileOpts(NewFileClientOpts{
+		ClientBaseDir: td,
+		UsePartFiles:  g.Some(false),
+	})
+	defer s.Close()
+	ts, err := s.OpenTorrent(context.Background(), info, metainfo.Hash{})
+	qt.Assert(t, qt.IsNil(err))
+	defer ts.Close()
+
+	state, err := ts.FileState(0)
+	qt.Assert(t, qt.IsNil(err))
+	qt.Check(t, qt.IsFalse(state.Released))
+	qt.Assert(t, qt.IsNil(os.WriteFile(filepath.Join(td, "payload"), []byte("data"), 0o666)))
+	qt.Assert(t, qt.IsNil(ts.MarkFileReleased(0)))
+	state, err = ts.FileState(0)
+	qt.Assert(t, qt.IsNil(err))
+	qt.Check(t, qt.IsTrue(state.Released))
+	qt.Assert(t, qt.IsNil(ts.MarkFileDiscarded(0)))
+	state, err = ts.FileState(0)
+	qt.Assert(t, qt.IsNil(err))
+	qt.Check(t, qt.IsFalse(state.Released))
 }
 
 func TestReleasedFileRemainsCompleteAfterRemoval(t *testing.T) {

@@ -21,6 +21,8 @@ type FileLease struct {
 
 	mu        sync.Mutex
 	finalized bool
+	released  bool
+	discarded bool
 	done      chan struct{}
 }
 
@@ -45,6 +47,25 @@ func (l *FileLease) wasFinalized() bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.finalized
+}
+
+// Finalized reports whether Release or Discard has completed successfully.
+func (l *FileLease) Finalized() bool {
+	return l.wasFinalized()
+}
+
+// Released reports whether Release has completed successfully.
+func (l *FileLease) Released() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.released
+}
+
+// Discarded reports whether Discard has completed successfully.
+func (l *FileLease) Discarded() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.discarded
 }
 
 func (l *FileLease) finalize(ctx context.Context, discard bool) error {
@@ -75,6 +96,8 @@ func (l *FileLease) finalize(ctx context.Context, discard bool) error {
 		return err
 	}
 	l.finalized = true
+	l.released = !discard
+	l.discarded = discard
 	if l.done == nil {
 		l.done = make(chan struct{})
 	}
@@ -104,10 +127,84 @@ func (l *FileLease) waitFinalized(ctx context.Context) error {
 	}
 }
 
+// FileSelectionController lets callers change the file set used by Files while
+// it is running. A nil selection means all files; an empty non-nil selection
+// means no files.
+type FileSelectionController struct {
+	mu      sync.Mutex
+	indexes []int
+	changed chan struct{}
+	closed  bool
+}
+
+func NewFileSelectionController(indexes []int) *FileSelectionController {
+	return &FileSelectionController{
+		indexes: cloneFileIndexes(indexes),
+		changed: make(chan struct{}),
+	}
+}
+
+func (c *FileSelectionController) SetSelectedFileIndexes(indexes []int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
+		return errors.New("file selection controller is closed")
+	}
+	c.indexes = cloneFileIndexes(indexes)
+	c.notifyLocked()
+	return nil
+}
+
+func (c *FileSelectionController) SelectedFileIndexes() []int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return cloneFileIndexes(c.indexes)
+}
+
+func (c *FileSelectionController) Close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
+		return
+	}
+	c.closed = true
+	c.notifyLocked()
+}
+
+func (c *FileSelectionController) snapshot() ([]int, bool, <-chan struct{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.changed == nil {
+		c.changed = make(chan struct{})
+	}
+	return cloneFileIndexes(c.indexes), c.closed, c.changed
+}
+
+func (c *FileSelectionController) notifyLocked() {
+	if c.changed == nil {
+		c.changed = make(chan struct{})
+	}
+	close(c.changed)
+	if !c.closed {
+		c.changed = make(chan struct{})
+	}
+}
+
+func cloneFileIndexes(indexes []int) []int {
+	if indexes == nil {
+		return nil
+	}
+	return append([]int(nil), indexes...)
+}
+
 type FilesOptions struct {
 	// FileIndexes selects zero-based torrent file indexes. Nil means all
 	// files; an empty non-nil slice means none.
 	FileIndexes []int
+	// Selection allows FileIndexes to be changed while Files is running. When
+	// set, FileIndexes is ignored and Files runs until the context is cancelled,
+	// the controller is closed, or an error occurs.
+	Selection *FileSelectionController
 	// MaxActive limits how many selected files are requested at once. Values
 	// <=0 request all selected files at once.
 	MaxActive int
@@ -132,6 +229,9 @@ func Files(
 	}
 	if h == nil {
 		return errors.New("nil file handler")
+	}
+	if opts.Selection != nil {
+		return filesWithSelection(ctx, t, opts, h)
 	}
 	if _, err := t.WaitInfo(ctx); err != nil {
 		return err
@@ -193,6 +293,139 @@ queue:
 	return resultErr
 }
 
+type selectedFileRun struct {
+	cancel context.CancelFunc
+}
+
+type selectedFileResult struct {
+	index     int
+	err       error
+	completed bool
+}
+
+func filesWithSelection(
+	ctx context.Context,
+	t *torrent.Torrent,
+	opts FilesOptions,
+	h func(context.Context, *FileLease) error,
+) error {
+	if _, err := t.WaitInfo(ctx); err != nil {
+		return err
+	}
+	files := t.Files()
+	maxActive := opts.MaxActive
+	if maxActive <= 0 || maxActive > len(files) {
+		maxActive = len(files)
+	}
+	active := make(map[int]selectedFileRun)
+	finished := make(map[int]struct{})
+	results := make(chan selectedFileResult, len(files))
+	var resultErr error
+	var stopErr error
+	for {
+		indexes, closed, changed := opts.Selection.snapshot()
+		selected, err := selectedFileSet(files, indexes)
+		if err != nil && stopErr == nil {
+			stopErr = err
+		}
+		if stopErr == nil {
+			for index, run := range active {
+				if _, ok := selected[index]; !ok {
+					run.cancel()
+				}
+			}
+			for _, f := range files {
+				if len(active) >= maxActive {
+					break
+				}
+				index := f.Index()
+				if _, ok := selected[index]; !ok {
+					continue
+				}
+				if _, ok := finished[index]; ok {
+					continue
+				}
+				if _, ok := active[index]; ok {
+					continue
+				}
+				waitCtx, cancel := context.WithCancel(ctx)
+				active[index] = selectedFileRun{cancel: cancel}
+				go runSelectedFile(waitCtx, ctx, f, opts, h, results)
+			}
+		} else {
+			for _, run := range active {
+				run.cancel()
+			}
+		}
+		if stopErr != nil && len(active) == 0 {
+			return errors.Join(resultErr, stopErr)
+		}
+		if closed && len(active) == 0 {
+			return resultErr
+		}
+		if closed {
+			changed = nil
+		}
+		select {
+		case <-ctx.Done():
+			if stopErr == nil {
+				stopErr = ctx.Err()
+			}
+			for _, run := range active {
+				run.cancel()
+			}
+		case <-changed:
+		case result := <-results:
+			delete(active, result.index)
+			if result.completed {
+				finished[result.index] = struct{}{}
+			}
+			if result.err != nil {
+				resultErr = errors.Join(resultErr, result.err)
+				if stopErr == nil {
+					stopErr = result.err
+				}
+			}
+		}
+	}
+}
+
+func runSelectedFile(
+	waitCtx context.Context,
+	handlerCtx context.Context,
+	f *torrent.File,
+	opts FilesOptions,
+	h func(context.Context, *FileLease) error,
+	results chan<- selectedFileResult,
+) {
+	f.Download()
+	defer f.SetPriority(torrent.PiecePriorityNone)
+	if err := f.WaitVerifiedComplete(waitCtx); err != nil {
+		if errors.Is(err, context.Canceled) && handlerCtx.Err() == nil {
+			results <- selectedFileResult{index: f.Index()}
+		} else {
+			results <- selectedFileResult{index: f.Index(), err: err}
+		}
+		return
+	}
+	lease := newLease(handlerCtx, f, opts.Readahead)
+	handlerErr := h(handlerCtx, lease)
+	var finalizeErr error
+	if !lease.wasFinalized() {
+		if handlerErr != nil || !opts.RequireExplicitRelease {
+			finalizeErr = lease.Release(context.Background())
+		} else {
+			finalizeErr = lease.waitFinalized(handlerCtx)
+		}
+	}
+	err := errors.Join(handlerErr, finalizeErr)
+	results <- selectedFileResult{
+		index:     f.Index(),
+		err:       err,
+		completed: err == nil,
+	}
+}
+
 func newLease(ctx context.Context, f *torrent.File, readahead int64) *FileLease {
 	r := f.NewReader()
 	r.SetContext(ctx)
@@ -226,6 +459,18 @@ func (r *limitedReadCloser) Close() error {
 		r.err = r.closer.Close()
 	})
 	return r.err
+}
+
+func selectedFileSet(files []*torrent.File, indexes []int) (map[int]*torrent.File, error) {
+	selectedFiles, err := selectFiles(files, indexes)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[int]*torrent.File, len(selectedFiles))
+	for _, f := range selectedFiles {
+		ret[f.Index()] = f
+	}
+	return ret, nil
 }
 
 func selectFiles(files []*torrent.File, indexes []int) ([]*torrent.File, error) {

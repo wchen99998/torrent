@@ -55,11 +55,54 @@ func TestFileReleaseStorageRemovesFile(t *testing.T) {
 	}))
 	path := filepath.Join(dir, "payload")
 	require.NoError(t, os.WriteFile(path, []byte("data"), 0o666))
+	assert.False(t, tor.Files()[0].Released())
+	assert.False(t, tor.FileSnapshots()[0].Released)
 
 	require.NoError(t, tor.Files()[0].ReleaseStorage())
 
 	_, err = os.Stat(path)
 	assert.True(t, errors.Is(err, os.ErrNotExist), "expected released file to be removed, got %v", err)
+	assert.True(t, tor.Files()[0].Released())
+	assert.True(t, tor.FileSnapshots()[0].Released)
+}
+
+func TestFileReleasedSnapshotRestoredAfterReopen(t *testing.T) {
+	dir := t.TempDir()
+	info := &metainfo.Info{
+		Name:        "payload",
+		Length:      4,
+		PieceLength: 4,
+		Pieces:      make([]byte, metainfo.HashSize),
+	}
+	newTorrent := func(t *testing.T) (*Client, *Torrent) {
+		cfg := TestingConfig(t)
+		cfg.DataDir = dir
+		cfg.DefaultStorage = storage.NewFileOpts(storage.NewFileClientOpts{
+			ClientBaseDir:      dir,
+			UsePartFiles:       g.Some(false),
+			ForceClassicFileIO: true,
+		})
+		cl, err := NewClient(cfg)
+		require.NoError(t, err)
+		tor, new := cl.AddTorrentOpt(AddTorrentOpts{
+			InfoHash:                 testingTorrentInfoHash,
+			DisableInitialPieceCheck: true,
+		})
+		require.True(t, new)
+		require.NoError(t, tor.setInfoUnlocked(info))
+		return cl, tor
+	}
+
+	cl, tor := newTorrent(t)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "payload"), []byte("data"), 0o666))
+	require.NoError(t, tor.Files()[0].ReleaseStorage())
+	assert.True(t, tor.FileSnapshots()[0].Released)
+	require.Empty(t, cl.Close())
+
+	cl, tor = newTorrent(t)
+	defer cl.Close()
+	assert.True(t, tor.Files()[0].Released())
+	assert.True(t, tor.FileSnapshots()[0].Released)
 }
 
 func TestFileDiscardStorageRemovesFileAndMarksIncomplete(t *testing.T) {

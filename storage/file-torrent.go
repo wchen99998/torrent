@@ -110,6 +110,18 @@ func (me *fileTorrentImpl) markFileDiscarded(fileIndex int) error {
 	return nil
 }
 
+func (me *fileTorrentImpl) fileState(fileIndex int) (FileState, error) {
+	if err := me.validateFileIndex(fileIndex); err != nil {
+		return FileState{}, err
+	}
+	f := me.file(fileIndex)
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return FileState{
+		Released: f.released,
+	}, nil
+}
+
 func (me *fileTorrentImpl) writeReleasedFileMarker(f file) error {
 	if err := os.MkdirAll(filepath.Dir(f.releasedFilePath()), dirPerm); err != nil {
 		return err
