@@ -540,6 +540,9 @@ func (p *Peer) decPeakRequests() {
 }
 
 func (p *Peer) recordBlockForSmartBan(req RequestIndex, blockData []byte) {
+	if p.t.cl.config.DisableSmartBanning {
+		return
+	}
 	if p.bannableAddr.Ok {
 		p.t.smartBanCache.RecordBlock(p.bannableAddr.Value, req, blockData)
 	}

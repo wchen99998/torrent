@@ -98,6 +98,10 @@ type ClientConfig struct {
 	DownloadRateLimiter *rate.Limiter
 	// Maximum unverified bytes across all torrents. Not used if zero.
 	MaxUnverifiedBytes int64
+	// Don't record per-block hashes of incoming data for smart banning. Saves memory on
+	// low-memory hosts at the cost of not being able to attribute piece hash failures to
+	// specific peers. Piece data is still verified against the torrent piece hashes.
+	DisableSmartBanning bool
 
 	// User-provided Client peer ID. If not present, one is generated automatically.
 	PeerID string
