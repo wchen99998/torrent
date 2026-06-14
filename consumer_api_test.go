@@ -34,6 +34,49 @@ func newConsumerAPITestTorrent(t *testing.T, info *metainfo.Info) (*Client, *Tor
 	return cl, tor
 }
 
+type cappedConsumerAPIStorage struct{}
+
+func (cappedConsumerAPIStorage) OpenTorrent(
+	_ context.Context,
+	_ *metainfo.Info,
+	_ metainfo.Hash,
+) (storage.TorrentImpl, error) {
+	capacity := func() (int64, bool) { return 1, true }
+	return storage.TorrentImpl{
+		Piece: func(metainfo.Piece) storage.PieceImpl {
+			return storagePiece{complete: false}
+		},
+		Capacity: &capacity,
+	}, nil
+}
+
+func newCappedConsumerAPITestTorrent(t *testing.T, info *metainfo.Info) (*Client, *Torrent) {
+	cfg := TestingConfig(t)
+	cfg.DefaultStorage = cappedConsumerAPIStorage{}
+	cl, err := NewClient(cfg)
+	require.NoError(t, err)
+	t.Cleanup(func() { cl.Close() })
+	tor, new := cl.AddTorrentOpt(AddTorrentOpts{
+		InfoHash:                 testingTorrentInfoHash,
+		DisableInitialPieceCheck: true,
+	})
+	require.True(t, new)
+	require.NoError(t, tor.setInfoUnlocked(info))
+	return cl, tor
+}
+
+func requirePendingPiecesMatchRequestOrder(t *testing.T, tor *Torrent) {
+	t.Helper()
+	exclPro, exclPending, ok := tor.pendingPiecesMatchRequestOrder()
+	require.Truef(
+		t,
+		ok,
+		"piece request order has %v and pending pieces has %v",
+		exclPro.String(),
+		exclPending.String(),
+	)
+}
+
 func completePiece(t *testing.T, tor *Torrent, pieceIndex int, data []byte) {
 	p := tor.piece(pieceIndex).Storage()
 	_, err := p.WriteAt(data, 0)
@@ -177,25 +220,54 @@ func TestFileWaitCompleteZeroLength(t *testing.T) {
 func TestDisallowDataDownloadUpdatesPendingPieces(t *testing.T) {
 	cl, tor := newConsumerAPITestTorrent(t, &metainfo.Info{
 		Name:        "payload",
-		Length:      4,
+		Length:      8,
 		PieceLength: 4,
-		Pieces:      make([]byte, metainfo.HashSize),
+		Pieces:      make([]byte, 2*metainfo.HashSize),
 	})
 	require.NoError(t, tor.piece(0).Storage().MarkNotComplete())
+	require.NoError(t, tor.piece(1).Storage().MarkNotComplete())
 	tor.piece(0).UpdateCompletion()
+	tor.piece(1).UpdateCompletion()
 	tor.Files()[0].Download()
 
 	cl.lock()
 	defer cl.unlock()
 	require.False(t, tor._pendingPieces.IsEmpty())
+	requirePendingPiecesMatchRequestOrder(t, tor)
 	tor.disallowDataDownloadLocked()
 	assert.True(t, tor._pendingPieces.IsEmpty())
+	requirePendingPiecesMatchRequestOrder(t, tor)
 	short := *tor.canonicalShortInfohash()
 	for item := range tor.getPieceRequestOrder().Iter {
 		if item.Key.InfoHash.Value() == short && item.State.Priority > PiecePriorityNone && !tor.ignorePieceForRequests(item.Key.Index) {
 			t.Fatalf("piece %d remained requestable after data download was disallowed", item.Key.Index)
 		}
 	}
+}
+
+func TestAllowAndDisallowDataDownloadKeepCappedRequestOrderConsistent(t *testing.T) {
+	cl, tor := newCappedConsumerAPITestTorrent(t, &metainfo.Info{
+		Name:        "payload",
+		Length:      8,
+		PieceLength: 4,
+		Pieces:      make([]byte, 2*metainfo.HashSize),
+	})
+	tor.Files()[0].Download()
+
+	cl.lock()
+	require.False(t, tor._pendingPieces.IsEmpty())
+	requirePendingPiecesMatchRequestOrder(t, tor)
+	tor.disallowDataDownloadLocked()
+	assert.True(t, tor._pendingPieces.IsEmpty())
+	requirePendingPiecesMatchRequestOrder(t, tor)
+	cl.unlock()
+
+	tor.AllowDataDownload()
+
+	cl.lock()
+	defer cl.unlock()
+	require.False(t, tor._pendingPieces.IsEmpty())
+	requirePendingPiecesMatchRequestOrder(t, tor)
 }
 
 func TestPrivateTorrentDisablesPeerExchangeAndDhtAnnounce(t *testing.T) {

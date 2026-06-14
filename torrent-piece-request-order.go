@@ -96,6 +96,14 @@ func (t *Torrent) checkPendingPiecesMatchesRequestOrder() {
 	if !amortize.Try() {
 		return
 	}
+	exclPro, exclPending, ok := t.pendingPiecesMatchRequestOrder()
+	if ok {
+		return
+	}
+	panic(fmt.Sprintf("piece request order has %v and pending pieces has %v", exclPro.String(), exclPending.String()))
+}
+
+func (t *Torrent) pendingPiecesMatchRequestOrder() (exclPro, exclPending roaring.Bitmap, ok bool) {
 	short := *t.canonicalShortInfohash()
 	var proBitmap roaring.Bitmap
 	for item := range t.getPieceRequestOrder().Iter {
@@ -110,10 +118,12 @@ func (t *Torrent) checkPendingPiecesMatchesRequestOrder() {
 		}
 		proBitmap.Add(uint32(item.Key.Index))
 	}
-	if !proBitmap.Equals(&t._pendingPieces.Bitmap) {
-		intersection := roaring.And(&proBitmap, &t._pendingPieces.Bitmap)
-		exclPro := roaring.AndNot(&proBitmap, intersection)
-		exclPending := roaring.AndNot(&t._pendingPieces.Bitmap, intersection)
-		panic(fmt.Sprintf("piece request order has %v and pending pieces has %v", exclPro.String(), exclPending.String()))
+	if proBitmap.Equals(&t._pendingPieces.Bitmap) {
+		ok = true
+		return
 	}
+	intersection := roaring.And(&proBitmap, &t._pendingPieces.Bitmap)
+	exclPro = *roaring.AndNot(&proBitmap, intersection)
+	exclPending = *roaring.AndNot(&t._pendingPieces.Bitmap, intersection)
+	return
 }

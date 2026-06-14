@@ -1578,8 +1578,7 @@ func (t *Torrent) updatePendingPieces(piece pieceIndex) bool {
 	}
 }
 
-// Maybe return whether peer requests should be updated so reason doesn't have to be passed?
-func (t *Torrent) updatePiecePriorityNoRequests(piece pieceIndex) (updateRequests bool) {
+func (t *Torrent) updatePiecePriorityState(piece pieceIndex) (updateRequests, pendingChanged bool) {
 	// I think because the piece request order gets removed at close.
 	if !t.closed.IsSet() {
 		// It would be possible to filter on pure-priority changes here to avoid churning the piece
@@ -1588,12 +1587,19 @@ func (t *Torrent) updatePiecePriorityNoRequests(piece pieceIndex) (updateRequest
 		updateRequests = t.updatePieceRequestOrderPiece(piece) && t.hasStorageCap()
 	}
 	if t.updatePendingPieces(piece) {
-		if !t.disableTriggers {
-			// This used to happen after updating requests, but I don't think the order matters.
-			t.onPiecePendingTriggers(piece)
-		}
 		// Something was added or removed.
+		pendingChanged = true
 		updateRequests = true
+	}
+	return
+}
+
+// Maybe return whether peer requests should be updated so reason doesn't have to be passed?
+func (t *Torrent) updatePiecePriorityNoRequests(piece pieceIndex) (updateRequests bool) {
+	updateRequests, pendingChanged := t.updatePiecePriorityState(piece)
+	if pendingChanged && !t.disableTriggers {
+		// This used to happen after updating requests, but I don't think the order matters.
+		t.onPiecePendingTriggers(piece)
 	}
 	return
 }
@@ -1616,8 +1622,24 @@ func (t *Torrent) updateAllPiecePriorities(reason updateRequestReason) {
 // updatePiecePriority, but across all pieces.
 func (t *Torrent) updatePiecePriorities(begin, end pieceIndex, reason updateRequestReason) {
 	t.logger.Slogger().Debug("updating piece priorities", "begin", begin, "end", end)
+	var updateRequests bool
+	var pendingChanged []pieceIndex
 	for i := begin; i < end; i++ {
-		t.updatePiecePriority(i, reason)
+		pieceUpdateRequests, piecePendingChanged := t.updatePiecePriorityState(i)
+		updateRequests = updateRequests || pieceUpdateRequests
+		if piecePendingChanged {
+			pendingChanged = append(pendingChanged, i)
+		}
+	}
+	if !t.disableTriggers {
+		for _, i := range pendingChanged {
+			t.onPiecePendingTriggers(i)
+		}
+		if updateRequests {
+			t.iterPeers(func(p *Peer) {
+				p.onNeedUpdateRequests(reason)
+			})
+		}
 	}
 	t.logPieceRequestOrder()
 }
@@ -1894,6 +1916,9 @@ func (t *Torrent) needData() bool {
 	}
 	if !t.haveInfo() {
 		return true
+	}
+	if t.dataDownloadDisallowed.Bool() {
+		return false
 	}
 	t.checkPendingPiecesMatchesRequestOrder()
 	return !t._pendingPieces.IsEmpty()
