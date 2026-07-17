@@ -51,6 +51,7 @@ import (
 	"github.com/wchen99998/torrent/storage"
 	"github.com/wchen99998/torrent/types/infohash"
 	infohash_v2 "github.com/wchen99998/torrent/types/infohash-v2"
+	"github.com/wchen99998/torrent/version"
 )
 
 const webseedRequestUpdateTimerInterval = 5 * time.Second
@@ -168,14 +169,16 @@ func (cl *Client) LocalPort() (port int) {
 
 // OnLPDAnnouncement implements lpdClient. It adds addr to any torrent matching
 // an announced infohash, and also to all other active torrents (LPD is the
-// only source of local IPs).
+// only source of local IPs). Private torrents (BEP 27) are skipped on both
+// paths — they must not receive peers via local discovery.
 func (cl *Client) OnLPDAnnouncement(addr string, infohashes []string) {
 	announced := make(map[*Torrent]struct{}, len(infohashes))
 	for _, ih := range infohashes {
 		if t, ok := cl.Torrent(metainfo.NewHashFromHex(ih)); ok {
-			if !t.Private() {
-				lpdPeer(t, addr)
+			if t.Private() {
+				continue
 			}
+			lpdPeer(t, addr)
 			announced[t] = struct{}{}
 		}
 	}
@@ -184,26 +187,29 @@ func (cl *Client) OnLPDAnnouncement(addr string, infohashes []string) {
 	cl.rLock()
 	var rest []*Torrent
 	for t := range cl.torrents {
-		if _, ok := announced[t]; !ok {
+		if _, ok := announced[t]; !ok && !t.Private() {
 			rest = append(rest, t)
 		}
 	}
 	cl.rUnlock()
 
 	for _, t := range rest {
-		if !t.Private() {
-			lpdPeer(t, addr)
-		}
+		lpdPeer(t, addr)
 	}
 }
 
 // TorrentInfohashesAndPort implements lpdClient. It returns a snapshot of
-// active torrent infohash hex strings and the listen port.
+// active torrent infohash hex strings and the listen port. Private torrents
+// (BEP 27) are excluded — they must not be announced via Local Peer
+// Discovery (BEP 14).
 func (cl *Client) TorrentInfohashesAndPort() (port int, infohashes []string) {
 	cl.rLock()
 	defer cl.rUnlock()
 	port = cl.LocalPort()
 	for t := range cl.torrents {
+		if t.Private() {
+			continue
+		}
 		infohashes = append(infohashes, t.InfoHash().HexString())
 	}
 	return
@@ -317,6 +323,12 @@ func (cl *Client) init(cfg *ClientConfig) {
 	cl.initLogger()
 	cl.regularTrackerAnnounceDispatcher.init(cl)
 	cfg.setRateLimiterBursts()
+	if cfg.AnonymousMode {
+		cfg.HTTPUserAgent = version.AnonymousHttpUserAgent
+		cfg.ExtendedHandshakeClientVersion = version.AnonymousExtendedHandshakeClientVersion
+		cfg.Bep20 = version.AnonymousBep20Prefix
+		cfg.UpnpID = version.AnonymousUpnpId
+	}
 	g.MakeMap(&cl.dopplegangerAddrs)
 	g.MakeMap(&cl.torrentsByShortHash)
 	g.MakeMap(&cl.torrents)
@@ -1343,6 +1355,12 @@ func (pc *PeerConn) sendInitialMessages() {
 		}
 		pc.postBitfield()
 	}()
+	// BEP 6: announce the Allowed Fast Set so the peer can request these pieces
+	// while still choked. Only meaningful when both sides support Fast Extension
+	// and we know how many pieces the torrent has.
+	if pc.fastEnabled() && t.haveInfo() {
+		pc.sendAllowedFastSet()
+	}
 	if pc.PeerExtensionBytes.SupportsDHT() && cl.config.Extensions.SupportsDHT() && cl.haveDhtServer() && !t.Private() {
 		pc.write(pp.Message{
 			Type: pp.Port,
@@ -1588,7 +1606,8 @@ func (cl *Client) AddTorrentOpt(opts AddTorrentOpts) (t *Torrent, new bool) {
 
 	cl.unlock()
 
-	if cl.lpd != nil {
+	// BEP 27: private torrents must not receive or announce via Local Peer Discovery.
+	if cl.lpd != nil && !t.Private() {
 		cl.lpd.lpdPeers(t)
 		cl.lpd.lpdForce()
 	}

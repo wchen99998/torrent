@@ -45,7 +45,19 @@ func (p Peer) String() string {
 	}
 }
 
-// Set from the non-compact form in BEP 3.
+// Package-level errors for malformed peer dictionaries. We use these instead of
+// fmt.Errorf to avoid allocating a new error string on every malformed entry,
+// since a hostile tracker could send many of them in a single response.
+var (
+	errPeerDictMissingIP    = errors.New("peer dict: missing or invalid \"ip\"")
+	errPeerDictInvalidID    = errors.New("peer dict: invalid \"peer id\"")
+	errPeerDictMissingPort  = errors.New("peer dict: missing or invalid \"port\"")
+	errPeerDictPortOutRange = errors.New("peer dict: \"port\" out of range")
+)
+
+// Set from the non-compact form in BEP 3. This keeps the fork's established
+// public signature; tracker response parsing uses the error-returning helper
+// below so malformed network input is never allowed to panic.
 func (p *Peer) FromDictInterface(d map[string]interface{}) {
 	if err := p.fromDictInterface(d); err != nil {
 		panic(err)
@@ -53,29 +65,34 @@ func (p *Peer) FromDictInterface(d map[string]interface{}) {
 }
 
 func (p *Peer) fromDictInterface(d map[string]interface{}) error {
-	ipString, ok := d["ip"].(string)
+	ipStr, ok := d["ip"].(string)
 	if !ok {
-		return errors.New("missing or invalid peer ip")
+		return errPeerDictMissingIP
 	}
-	p.IP = net.ParseIP(ipString)
-	if p.IP == nil {
-		return fmt.Errorf("invalid peer ip %q", ipString)
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		// Don't let garbage like "not-an-ip" through — a nil IP would cause
+		// problems when we actually try to connect to this peer later.
+		return errPeerDictMissingIP
 	}
-	if _, ok := d["peer id"]; ok {
-		id, ok := d["peer id"].(string)
+	var id []byte
+	if rawID, present := d["peer id"]; present {
+		peerID, ok := rawID.(string)
 		if !ok {
-			return errors.New("invalid peer id")
+			return errPeerDictInvalidID
 		}
-		p.ID = []byte(id)
+		id = []byte(peerID)
 	}
-	port, ok := d["port"].(int64)
+	portVal, ok := d["port"].(int64)
 	if !ok {
-		return errors.New("missing or invalid peer port")
+		return errPeerDictMissingPort
 	}
-	if port < 0 || port > 0xffff {
-		return fmt.Errorf("peer port out of range: %d", port)
+	if portVal < 0 || portVal > 0xffff {
+		return errPeerDictPortOutRange
 	}
-	p.Port = int(port)
+	p.IP = ip
+	p.ID = id
+	p.Port = int(portVal)
 	return nil
 }
 

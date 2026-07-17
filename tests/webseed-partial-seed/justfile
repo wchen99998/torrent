@@ -1,15 +1,8 @@
-# Thought this was the default, and fuck figuring out venv right now. The
-# comamnds below probably can be done better.
-
-venv_dir := ".venv"
-
 setup:
-    python3 -m venv {{ venv_dir }}
-    {{ venv_dir / "bin/pip" }} install rangehttpserver
     mkfile -n 500m test.img
 
 run-server:
-    {{ venv_dir / "bin/python" }} -m RangeHTTPServer 3003
+    uv run --with rangehttpserver --no-project -- python -m RangeHTTPServer 3003
 
 run-test:
-    GOPPROF=http go test -race -v .
+    GOWORK=off GOPPROF=http go test -race -v .
