@@ -8,8 +8,7 @@ import (
 
 	"github.com/RoaringBitmap/roaring/v2"
 	g "github.com/anacrolix/generics"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	qt "github.com/go-quicktest/qt"
 
 	"github.com/wchen99998/torrent/metainfo"
 	"github.com/wchen99998/torrent/storage"
@@ -25,8 +24,8 @@ func TestFileExclusivePieces(t *testing.T) {
 		{1, 4, 2, 1, 2},
 	} {
 		begin, end := byteRegionExclusivePieces(_case.off, _case.size, _case.pieceSize)
-		assert.EqualValues(t, _case.begin, begin)
-		assert.EqualValues(t, _case.end, end)
+		qt.Check(t, qt.Equals(begin, _case.begin))
+		qt.Check(t, qt.Equals(end, _case.end))
 	}
 }
 
@@ -40,30 +39,30 @@ func TestFileReleaseStorageRemovesFile(t *testing.T) {
 		ForceClassicFileIO: true,
 	})
 	cl, err := NewClient(cfg)
-	require.NoError(t, err)
+	qt.Assert(t, qt.IsNil(err))
 	defer cl.Close()
 	tor, new := cl.AddTorrentOpt(AddTorrentOpts{
 		InfoHash:                 testingTorrentInfoHash,
 		DisableInitialPieceCheck: true,
 	})
-	require.True(t, new)
-	require.NoError(t, tor.setInfoUnlocked(&metainfo.Info{
+	qt.Assert(t, qt.IsTrue(new))
+	qt.Assert(t, qt.IsNil(tor.setInfoUnlocked(&metainfo.Info{
 		Name:        "payload",
 		Length:      4,
 		PieceLength: 4,
 		Pieces:      make([]byte, metainfo.HashSize),
-	}))
+	})))
 	path := filepath.Join(dir, "payload")
-	require.NoError(t, os.WriteFile(path, []byte("data"), 0o666))
-	assert.False(t, tor.Files()[0].Released())
-	assert.False(t, tor.FileSnapshots()[0].Released)
+	qt.Assert(t, qt.IsNil(os.WriteFile(path, []byte("data"), 0o666)))
+	qt.Check(t, qt.IsFalse(tor.Files()[0].Released()))
+	qt.Check(t, qt.IsFalse(tor.FileSnapshots()[0].Released))
 
-	require.NoError(t, tor.Files()[0].ReleaseStorage())
+	qt.Assert(t, qt.IsNil(tor.Files()[0].ReleaseStorage()))
 
 	_, err = os.Stat(path)
-	assert.True(t, errors.Is(err, os.ErrNotExist), "expected released file to be removed, got %v", err)
-	assert.True(t, tor.Files()[0].Released())
-	assert.True(t, tor.FileSnapshots()[0].Released)
+	qt.Check(t, qt.IsTrue(errors.Is(err, os.ErrNotExist)), qt.Commentf("expected released file to be removed, got %v", err))
+	qt.Check(t, qt.IsTrue(tor.Files()[0].Released()))
+	qt.Check(t, qt.IsTrue(tor.FileSnapshots()[0].Released))
 }
 
 func TestFileReleasedSnapshotRestoredAfterReopen(t *testing.T) {
@@ -83,26 +82,26 @@ func TestFileReleasedSnapshotRestoredAfterReopen(t *testing.T) {
 			ForceClassicFileIO: true,
 		})
 		cl, err := NewClient(cfg)
-		require.NoError(t, err)
+		qt.Assert(t, qt.IsNil(err))
 		tor, new := cl.AddTorrentOpt(AddTorrentOpts{
 			InfoHash:                 testingTorrentInfoHash,
 			DisableInitialPieceCheck: true,
 		})
-		require.True(t, new)
-		require.NoError(t, tor.setInfoUnlocked(info))
+		qt.Assert(t, qt.IsTrue(new))
+		qt.Assert(t, qt.IsNil(tor.setInfoUnlocked(info)))
 		return cl, tor
 	}
 
 	cl, tor := newTorrent(t)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "payload"), []byte("data"), 0o666))
-	require.NoError(t, tor.Files()[0].ReleaseStorage())
-	assert.True(t, tor.FileSnapshots()[0].Released)
-	require.Empty(t, cl.Close())
+	qt.Assert(t, qt.IsNil(os.WriteFile(filepath.Join(dir, "payload"), []byte("data"), 0o666)))
+	qt.Assert(t, qt.IsNil(tor.Files()[0].ReleaseStorage()))
+	qt.Check(t, qt.IsTrue(tor.FileSnapshots()[0].Released))
+	qt.Assert(t, qt.HasLen(cl.Close(), 0))
 
 	cl, tor = newTorrent(t)
 	defer cl.Close()
-	assert.True(t, tor.Files()[0].Released())
-	assert.True(t, tor.FileSnapshots()[0].Released)
+	qt.Check(t, qt.IsTrue(tor.Files()[0].Released()))
+	qt.Check(t, qt.IsTrue(tor.FileSnapshots()[0].Released))
 }
 
 func TestFileDiscardStorageRemovesFileAndMarksIncomplete(t *testing.T) {
@@ -115,32 +114,32 @@ func TestFileDiscardStorageRemovesFileAndMarksIncomplete(t *testing.T) {
 		ForceClassicFileIO: true,
 	})
 	cl, err := NewClient(cfg)
-	require.NoError(t, err)
+	qt.Assert(t, qt.IsNil(err))
 	defer cl.Close()
 	tor, new := cl.AddTorrentOpt(AddTorrentOpts{
 		InfoHash:                 testingTorrentInfoHash,
 		DisableInitialPieceCheck: true,
 	})
-	require.True(t, new)
-	require.NoError(t, tor.setInfoUnlocked(&metainfo.Info{
+	qt.Assert(t, qt.IsTrue(new))
+	qt.Assert(t, qt.IsNil(tor.setInfoUnlocked(&metainfo.Info{
 		Name:        "payload",
 		Length:      4,
 		PieceLength: 4,
 		Pieces:      make([]byte, metainfo.HashSize),
-	}))
+	})))
 	path := filepath.Join(dir, "payload")
 	p := tor.piece(0).Storage()
 	_, err = p.WriteAt([]byte("data"), 0)
-	require.NoError(t, err)
-	require.NoError(t, p.MarkComplete())
+	qt.Assert(t, qt.IsNil(err))
+	qt.Assert(t, qt.IsNil(p.MarkComplete()))
 	tor.piece(0).UpdateCompletion()
-	require.True(t, tor.pieceComplete(0))
+	qt.Assert(t, qt.IsTrue(tor.pieceComplete(0)))
 
-	require.NoError(t, tor.Files()[0].DiscardStorage())
+	qt.Assert(t, qt.IsNil(tor.Files()[0].DiscardStorage()))
 
 	_, err = os.Stat(path)
-	assert.True(t, errors.Is(err, os.ErrNotExist), "expected discarded file to be removed, got %v", err)
-	assert.False(t, tor.pieceComplete(0))
+	qt.Check(t, qt.IsTrue(errors.Is(err, os.ErrNotExist)), qt.Commentf("expected discarded file to be removed, got %v", err))
+	qt.Check(t, qt.IsFalse(tor.pieceComplete(0)))
 }
 
 func TestFileDiscardStorageClearsDirtyChunks(t *testing.T) {
@@ -153,32 +152,32 @@ func TestFileDiscardStorageClearsDirtyChunks(t *testing.T) {
 		ForceClassicFileIO: true,
 	})
 	cl, err := NewClient(cfg)
-	require.NoError(t, err)
+	qt.Assert(t, qt.IsNil(err))
 	defer cl.Close()
 	tor, new := cl.AddTorrentOpt(AddTorrentOpts{
 		InfoHash:                 testingTorrentInfoHash,
 		DisableInitialPieceCheck: true,
 	})
-	require.True(t, new)
+	qt.Assert(t, qt.IsTrue(new))
 	tor.setChunkSize(2)
-	require.NoError(t, tor.setInfoUnlocked(&metainfo.Info{
+	qt.Assert(t, qt.IsNil(tor.setInfoUnlocked(&metainfo.Info{
 		Name:        "payload",
 		Length:      4,
 		PieceLength: 4,
 		Pieces:      make([]byte, metainfo.HashSize),
-	}))
+	})))
 	p := tor.piece(0).Storage()
 	_, err = p.WriteAt([]byte("da"), 0)
-	require.NoError(t, err)
+	qt.Assert(t, qt.IsNil(err))
 	tor.cl.lock()
 	tor.dirtyChunks.Add(tor.pieceRequestIndexBegin(0))
-	require.True(t, tor.piece(0).hasDirtyChunks())
+	qt.Assert(t, qt.IsTrue(tor.piece(0).hasDirtyChunks()))
 	tor.cl.unlock()
 
-	require.NoError(t, tor.Files()[0].DiscardStorage())
+	qt.Assert(t, qt.IsNil(tor.Files()[0].DiscardStorage()))
 
 	tor.cl.lock()
-	assert.False(t, tor.piece(0).hasDirtyChunks())
+	qt.Check(t, qt.IsFalse(tor.piece(0).hasDirtyChunks()))
 	tor.cl.unlock()
 }
 
@@ -195,9 +194,9 @@ type testFileBytesLeft struct {
 
 func (me testFileBytesLeft) Run(t *testing.T) {
 	t.Run(me.name, func(t *testing.T) {
-		assert.EqualValues(t, me.expected, fileBytesLeft(me.usualPieceSize, me.firstPieceIndex, me.endPieceIndex, me.fileOffset, me.fileLength, &me.completedPieces, func(pieceIndex int) int64 {
+		qt.Check(t, qt.Equals(fileBytesLeft(me.usualPieceSize, me.firstPieceIndex, me.endPieceIndex, me.fileOffset, me.fileLength, &me.completedPieces, func(pieceIndex int) int64 {
 			return 0
-		}))
+		}), me.expected))
 	})
 }
 

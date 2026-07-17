@@ -28,6 +28,7 @@ import (
 	typedRoaring "github.com/wchen99998/torrent/typed-roaring"
 
 	"github.com/wchen99998/torrent/bencode"
+	"github.com/wchen99998/torrent/internal/fast"
 	requestStrategy "github.com/wchen99998/torrent/internal/request-strategy"
 
 	"github.com/wchen99998/torrent/merkle"
@@ -218,6 +219,9 @@ func (cn *PeerConn) onGotInfo(info *metainfo.Info) {
 // receiving badly sized BITFIELD, or invalid HAVE messages.
 func (cn *PeerConn) setNumPieces(num pieceIndex) {
 	cn._peerPieces.RemoveRange(uint64(num), roaring.MaxRange)
+	// Allowed Fast messages can arrive before metadata. Drop any speculative
+	// indices that turn out not to exist once the piece count is known.
+	cn.peerAllowedFast.RemoveRange(uint64(num), roaring.MaxRange)
 	cn.peerPiecesChanged()
 }
 
@@ -446,6 +450,35 @@ func (cn *PeerConn) postBitfield() {
 	cn.sentHaves = cn.t._completedPieces.Clone()
 }
 
+// sendAllowedFastSet computes the BEP 6 Allowed Fast Set for the remote peer
+// and sends one AllowedFast message per piece in the set. Callers must ensure
+// fastEnabled() and torrent metadata are available; the function is a no-op
+// when those preconditions don't hold or when the peer's address is not IPv4
+// (BEP 6 defines the algorithm only for IPv4).
+func (cn *PeerConn) sendAllowedFastSet() {
+	numPieces := uint32(cn.t.numPieces())
+	if numPieces == 0 {
+		return
+	}
+	ip := cn.remoteIp()
+	if ip == nil {
+		return
+	}
+	// BEP 6 derives the fast set from the BitTorrent v1 info hash. Torrents
+	// without a v1 hash (rare, v2-only) cannot produce a verifiable set.
+	if !cn.t.infoHash.Ok {
+		return
+	}
+	set := fast.GenerateFastSet(fast.DefaultK, numPieces, cn.t.infoHash.Value, ip)
+	for _, idx := range set {
+		cn.write(pp.Message{
+			Type:  pp.AllowedFast,
+			Index: pp.Integer(idx),
+		})
+		torrent.Add("allowed fasts sent", 1)
+	}
+}
+
 func (cn *PeerConn) handleOnNeedUpdateRequests() {
 	// The writer determines the request state as needed when it can write.
 	cn.tickleWriter()
@@ -473,6 +506,26 @@ func (cn *PeerConn) peerSentHave(piece pieceIndex) error {
 		cn.onNeedUpdateRequests("have")
 	}
 	cn.peerPiecesChanged()
+	return nil
+}
+
+// BEP 6 recommends a small Allowed Fast set but permits peers to choose its
+// size. Keep a generous bound so a malicious peer cannot grow this bitmap
+// without limit before metadata is available.
+const maxPeerAllowedFastPieces = 1024
+
+func (cn *PeerConn) peerSentAllowedFast(piece pieceIndex) error {
+	if piece < 0 || cn.t.haveInfo() && piece >= cn.t.numPieces() {
+		return errors.New("invalid allowed-fast piece")
+	}
+	if cn.peerAllowedFast.Contains(piece) {
+		return nil
+	}
+	if cn.peerAllowedFast.GetCardinality() >= maxPeerAllowedFastPieces {
+		return errors.New("too many allowed-fast pieces")
+	}
+	cn.peerAllowedFast.Add(piece)
+	cn.onNeedUpdateRequests("PeerConn.peerSentAllowedFast")
 	return nil
 }
 
@@ -1017,7 +1070,7 @@ func (c *PeerConn) mainReadLoop() (err error) {
 		case pp.AllowedFast:
 			torrent.Add("allowed fasts received", 1)
 			log.Fmsg("peer allowed fast: %d", msg.Index).AddValues(c).LogLevel(log.Debug, c.t.logger)
-			c.onNeedUpdateRequests("PeerConn.mainReadLoop allowed fast")
+			err = c.peerSentAllowedFast(pieceIndex(msg.Index))
 		case pp.Extended:
 			err = c.onReadExtendedMsg(msg.ExtendedID, msg.ExtendedPayload)
 		case pp.Hashes:
@@ -1408,7 +1461,7 @@ file:
 			if !pc.peerHasPiece(torrentPieceIndex) {
 				continue file
 			}
-			if !pc.t.piece(torrentPieceIndex).hashV2.Ok {
+			if pc.t.piece(torrentPieceIndex).hashV2 == nil {
 				haveAllHashes = false
 			}
 		}
@@ -1448,16 +1501,32 @@ file:
 }
 
 func (pc *PeerConn) onReadHashes(msg *pp.Message) (err error) {
+	hr := hashRequestFromMessage(*msg)
+	// A BEP 52 Hashes message is only meaningful as a response to a request we sent. Treat anything
+	// else as peer-controlled protocol noise so it can't allocate per-file hash state or touch unknown
+	// pieces roots.
+	if !g.MapContains(pc.sentHashRequests, hr) {
+		return fmt.Errorf("received unsolicited hashes message: %v", hr)
+	}
+	delete(pc.sentHashRequests, hr)
+	if msg.ProofLayers != 0 {
+		return errors.New("proof layers not supported")
+	}
+	if uint64(msg.Length) != uint64(len(msg.Hashes)) {
+		return fmt.Errorf("received %d hashes for length %d", len(msg.Hashes), msg.Length)
+	}
 	file := pc.t.getFileByPiecesRoot(msg.PiecesRoot)
+	if file == nil {
+		return fmt.Errorf("no file for pieces root %x", msg.PiecesRoot)
+	}
 	filePieceHashes := pc.receivedHashPieces[msg.PiecesRoot]
 	if filePieceHashes == nil {
 		filePieceHashes = make([][32]byte, file.numPieces())
 		g.MakeMapIfNil(&pc.receivedHashPieces)
 		pc.receivedHashPieces[msg.PiecesRoot] = filePieceHashes
 	}
-	if msg.ProofLayers != 0 {
-		// This isn't handled yet.
-		panic(msg.ProofLayers)
+	if uint64(msg.Index) > uint64(len(filePieceHashes)) {
+		return fmt.Errorf("hash index %d is past file piece count %d", msg.Index, len(filePieceHashes))
 	}
 	copy(filePieceHashes[msg.Index:], msg.Hashes)
 	root := merkle.RootWithPadHash(
@@ -1599,7 +1668,7 @@ func (cn *PeerConn) expectingChunks() bool {
 			cn.requestState.Requests,
 			cn.t.pieceRequestIndexBegin(i),
 			cn.t.pieceRequestIndexBegin(i+1),
-		) == 0
+		) != 0
 		return !haveAllowedFastRequests
 	})
 	return haveAllowedFastRequests

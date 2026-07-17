@@ -69,17 +69,18 @@ func (me *Peers) UnmarshalBencode(b []byte) (err error) {
 	case []interface{}:
 		vars.Add("http responses with list peers", 1)
 		me.Compact = false
-		for pos, i := range v {
-			d, ok := i.(map[string]interface{})
+		for _, i := range v {
+			// BEP 3 peers are dictionaries. Skip malformed entries to avoid
+			// panicking on type assertions from untrusted tracker data.
+			peerDict, ok := i.(map[string]interface{})
 			if !ok {
-				err = fmt.Errorf("unsupported peer entry type at index %d: %T", pos, i)
-				return
+				continue
 			}
 			var p Peer
-			err = p.fromDictInterface(d)
-			if err != nil {
-				err = fmt.Errorf("invalid peer entry at index %d: %w", pos, err)
-				return
+			// Use := here, not =. We don't want a parse error from the last
+			// entry to leak into the named return and fail the whole unmarshal.
+			if err := p.fromDictInterface(peerDict); err != nil {
+				continue
 			}
 			me.List = append(me.List, p)
 		}

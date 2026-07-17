@@ -1,11 +1,13 @@
 package torrent
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/netip"
 	"sync"
@@ -13,12 +15,13 @@ import (
 
 	g "github.com/anacrolix/generics"
 	"github.com/go-quicktest/qt"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 
+	"github.com/wchen99998/torrent/merkle"
 	"github.com/wchen99998/torrent/metainfo"
 	pp "github.com/wchen99998/torrent/peer_protocol"
 	"github.com/wchen99998/torrent/storage"
+	infohash_v2 "github.com/wchen99998/torrent/types/infohash-v2"
 )
 
 // Ensure that no race exists between sending a bitfield, and a subsequent
@@ -52,11 +55,11 @@ func TestSendBitfieldThenHave(t *testing.T) {
 	// This will cause connection.writer to terminate.
 	c.closed.Set()
 	c.locker().Unlock()
-	require.NoError(t, err)
-	require.EqualValues(t, 15, n)
+	qt.Assert(t, qt.IsNil(err))
+	qt.Assert(t, qt.Equals(n, 15))
 	// Here we see that the bitfield doesn't have piece 2 set, as that should
 	// arrive in the following Have message.
-	require.EqualValues(t, "\x00\x00\x00\x02\x05@\x00\x00\x00\x05\x04\x00\x00\x00\x02", string(b))
+	qt.Assert(t, qt.Equals(string(b), "\x00\x00\x00\x02\x05@\x00\x00\x00\x05\x04\x00\x00\x00\x02"))
 }
 
 type torrentStorage struct {
@@ -113,11 +116,11 @@ func BenchmarkConnectionMainReadLoop(b *testing.B) {
 		Storage:                  &torrentStorageClient{ts},
 		DisableInitialPieceCheck: true,
 	})
-	require.NoError(b, t.setInfoUnlocked(&metainfo.Info{
+	qt.Assert(b, qt.IsNil(t.setInfoUnlocked(&metainfo.Info{
 		Pieces:      make([]byte, 20),
 		Length:      1 << 20,
 		PieceLength: 1 << 20,
-	}))
+	})))
 	//t.storage = &storage.Torrent{TorrentImpl: storage.TorrentImpl{Piece: ts.Piece, Close: ts.Close}}
 	//t.onSetInfo()
 	cl.lock()
@@ -181,8 +184,8 @@ func BenchmarkConnectionMainReadLoop(b *testing.B) {
 			ts.allChunksWritten.Add(int(numRequests))
 			for _, wb := range msgBufs {
 				n, err := w.Write(wb)
-				require.NoError(b, err)
-				require.EqualValues(b, len(wb), n)
+				qt.Assert(b, qt.IsNil(err))
+				qt.Assert(b, qt.Equals(n, len(wb)))
 			}
 			// This is unlocked by a successful write to storage. So this unblocks when that is
 			// done.
@@ -207,6 +210,128 @@ func BenchmarkConnectionMainReadLoop(b *testing.B) {
 	qt.Assert(b, qt.IsTrue(t.smartBanCache.HasBlocks()))
 }
 
+func TestPeerConnRejectsUnsolicitedHashes(t *testing.T) {
+	var knownRoot infohash_v2.T
+	knownRoot[0] = 1
+	cl := &Client{}
+	cl._mu.client = cl
+	cl.slogger = slog.Default()
+	tor := &Torrent{
+		cl:        cl,
+		chunkSize: defaultChunkSize,
+		files: &[]*File{{
+			piecesRoot: g.Some(knownRoot),
+		}},
+	}
+	var msgBuf bytes.Buffer
+	// Feed the message through the read loop so this covers the network-reachable path, not just the
+	// private handler.
+	msg := pp.Message{
+		Type:   pp.Hashes,
+		Length: 1,
+		Hashes: [][32]byte{{}},
+	}
+	qt.Assert(t, qt.IsNil(msg.WriteTo(&msgBuf)))
+	cn := &PeerConn{
+		Peer: Peer{
+			cl:        cl,
+			t:         tor,
+			callbacks: &Callbacks{},
+		},
+		r: bytes.NewReader(msgBuf.Bytes()),
+	}
+
+	cl.lock()
+	err := cn.mainReadLoop()
+	cl.unlock()
+	qt.Assert(t, qt.IsNotNil(err))
+	qt.Assert(t, qt.StringContains(err.Error(), "unsolicited hashes message"))
+}
+
+func TestPeerConnAcceptsSolicitedHashes(t *testing.T) {
+	pieceHashes := [][32]byte{{}, {}}
+	piecesRoot := infohash_v2.T(merkle.Root(pieceHashes))
+	var v1Hash metainfo.Hash
+	cl := &Client{}
+	tor := &Torrent{
+		cl:        cl,
+		chunkSize: defaultChunkSize,
+		info: &metainfo.Info{
+			PieceLength: 1,
+		},
+		pieces: []Piece{
+			{hash: &v1Hash},
+			{hash: &v1Hash, index: 1},
+		},
+		files: &[]*File{{
+			t:          nil,
+			length:     2,
+			fi:         metainfo.FileInfo{Length: 2, PiecesRoot: g.Some(piecesRoot)},
+			piecesRoot: g.Some(piecesRoot),
+		}},
+	}
+	(*tor.files)[0].t = tor
+	for i := range tor.pieces {
+		tor.pieces[i].t = tor
+	}
+	msg := pp.Message{
+		Type:       pp.Hashes,
+		PiecesRoot: piecesRoot,
+		Length:     2,
+		Hashes:     pieceHashes,
+	}
+	cn := &PeerConn{
+		Peer: Peer{
+			cl: cl,
+			t:  tor,
+		},
+		sentHashRequests: map[hashRequest]struct{}{
+			hashRequestFromMessage(msg): {},
+		},
+	}
+
+	qt.Assert(t, qt.IsNil(cn.onReadHashes(&msg)))
+	_, sentHashRequestPresent := cn.sentHashRequests[hashRequestFromMessage(msg)]
+	qt.Assert(t, qt.IsFalse(sentHashRequestPresent))
+	// Matching the requested root should promote the received file layer hashes into piece v2 hashes.
+	qt.Assert(t, qt.DeepEquals(tor.pieces[0].hashV2, &pieceHashes[0]))
+	qt.Assert(t, qt.DeepEquals(tor.pieces[1].hashV2, &pieceHashes[1]))
+}
+
+func TestPeerConnRejectsHashesForMissingRoot(t *testing.T) {
+	var knownRoot infohash_v2.T
+	knownRoot[0] = 1
+	var missingRoot infohash_v2.T
+	missingRoot[0] = 2
+	cl := &Client{}
+	tor := &Torrent{
+		cl:        cl,
+		chunkSize: defaultChunkSize,
+		files: &[]*File{{
+			piecesRoot: g.Some(knownRoot),
+		}},
+	}
+	msg := pp.Message{
+		Type:       pp.Hashes,
+		PiecesRoot: missingRoot,
+		Length:     1,
+		Hashes:     [][32]byte{{}},
+	}
+	cn := &PeerConn{
+		Peer: Peer{
+			cl: cl,
+			t:  tor,
+		},
+		sentHashRequests: map[hashRequest]struct{}{
+			hashRequestFromMessage(msg): {},
+		},
+	}
+
+	err := cn.onReadHashes(&msg)
+	qt.Assert(t, qt.IsNotNil(err))
+	qt.Assert(t, qt.StringContains(err.Error(), "no file for pieces root"))
+}
+
 func TestConnPexPeerFlags(t *testing.T) {
 	var (
 		tcpAddr = &net.TCPAddr{IP: net.IPv6loopback, Port: 4848}
@@ -227,7 +352,7 @@ func TestConnPexPeerFlags(t *testing.T) {
 	}
 	for i, tc := range testcases {
 		f := tc.conn.pexPeerFlags()
-		require.EqualValues(t, tc.f, f, i)
+		qt.Assert(t, qt.Equals(f, tc.f), qt.Commentf("%v", i))
 	}
 }
 
@@ -310,6 +435,53 @@ func TestHaveAllThenBitfield(t *testing.T) {
 		// pieces.
 		{2, 0}, {1, 1}, {1, 0}, {2, 1}, {1, 0},
 	}))
+}
+
+func TestExpectingChunksWhileChokedRequiresAllowedFastRequest(t *testing.T) {
+	tor := &Torrent{_chunksPerRegularPiece: 1}
+	pc := PeerConn{Peer: Peer{t: tor}}
+	pc.initRequestState()
+	pc.requestState.Interested = true
+	pc.peerChoking = true
+	pc.requestState.Requests.Add(2)
+
+	pc.peerAllowedFast.Add(1)
+	qt.Check(t, qt.IsFalse(pc.expectingChunks()))
+
+	pc.peerAllowedFast.Add(2)
+	qt.Check(t, qt.IsTrue(pc.expectingChunks()))
+}
+
+func TestPeerSentAllowedFastValidationAndBounds(t *testing.T) {
+	tor := &Torrent{cl: &Client{config: NewDefaultClientConfig()}}
+	pc := PeerConn{Peer: Peer{t: tor}}
+	// Avoid scheduling a request update: this test exercises the parsing state
+	// directly, outside the client event loop.
+	pc.needRequestUpdate = "test"
+
+	qt.Check(t, qt.IsNil(pc.peerSentAllowedFast(7)))
+	qt.Check(t, qt.IsNil(pc.peerSentAllowedFast(7)))
+	qt.Check(t, qt.Equals(pc.peerAllowedFast.GetCardinality(), uint64(1)))
+
+	pc.peerAllowedFast.Clear()
+	for i := range maxPeerAllowedFastPieces {
+		pc.peerAllowedFast.Add(i)
+	}
+	qt.Check(t, qt.IsNil(pc.peerSentAllowedFast(0)))
+	qt.Check(t, qt.ErrorMatches(pc.peerSentAllowedFast(maxPeerAllowedFastPieces), "too many allowed-fast pieces"))
+
+	pc.peerAllowedFast.Clear()
+	pc.peerAllowedFast.Add(2)
+	pc.peerAllowedFast.Add(9)
+	tor.info = &metainfo.Info{
+		PieceLength: 1,
+		Pieces:      make([]byte, 3*metainfo.HashSize),
+	}
+	qt.Check(t, qt.ErrorMatches(pc.peerSentAllowedFast(-1), "invalid allowed-fast piece"))
+	qt.Check(t, qt.ErrorMatches(pc.peerSentAllowedFast(3), "invalid allowed-fast piece"))
+	pc.setNumPieces(tor.numPieces())
+	qt.Check(t, qt.IsTrue(pc.peerAllowedFast.Contains(2)))
+	qt.Check(t, qt.IsFalse(pc.peerAllowedFast.Contains(9)))
 }
 
 func TestApplyRequestStateWriteBufferConstraints(t *testing.T) {
@@ -425,12 +597,12 @@ func TestServePeerRequestTorrentClosedStorageReadFails(t *testing.T) {
 		Storage:                  &torrentStorageClient{ts},
 		DisableInitialPieceCheck: true,
 	})
-	require.NoError(t, tor.setInfoUnlocked(&metainfo.Info{
+	qt.Assert(t, qt.IsNil(tor.setInfoUnlocked(&metainfo.Info{
 		Pieces:      make([]byte, metainfo.HashSize),
 		PieceLength: 1,
 		Length:      1,
 		Name:        "test",
-	}))
+	})))
 
 	pc := cl.newConnection(nil, newConnectionOpts{network: "test"})
 	pc.setTorrent(tor)

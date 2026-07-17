@@ -1,17 +1,17 @@
 # torrent
 
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/anacrolix/torrent)](https://pkg.go.dev/github.com/anacrolix/torrent)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/wchen99998/torrent)](https://pkg.go.dev/github.com/wchen99998/torrent)
 
-This repository implements BitTorrent-related packages and command-line utilities in Go. The emphasis is on use as a library from other projects. It's been used 24/7 in production by downstream services since late 2014. The implementation was specifically created to explore Go's concurrency capabilities, and to include the ability to stream data directly from the BitTorrent network. To this end it [supports seeking, readaheads and other features](https://pkg.go.dev/github.com/anacrolix/torrent#Reader) exposing torrents and their files with the various Go idiomatic `io` package interfaces. This is also demonstrated through [torrentfs](#torrentfs).
+This repository implements BitTorrent-related packages and command-line utilities in Go. The emphasis is on use as a library from other projects. It's been used 24/7 in production by downstream services since late 2014. The implementation was specifically created to explore Go's concurrency capabilities, and to include the ability to stream data directly from the BitTorrent network. To this end it [supports seeking, readaheads and other features](https://pkg.go.dev/github.com/wchen99998/torrent#Reader) exposing torrents and their files with the various Go idiomatic `io` package interfaces. This is also demonstrated through [torrentfs](#torrentfs).
 
-There is support for [protocol encryption, DHT, PEX, uTP, WebTorrent, WebSeeds, BitTorrent v2, holepunching, and many more features and BEPs](https://pkg.go.dev/github.com/anacrolix/torrent). There are [several data storage backends provided](https://pkg.go.dev/github.com/anacrolix/torrent/storage): blob, file, bolt, mmap, and sqlite, to name a few. You can [write your own](https://pkg.go.dev/github.com/anacrolix/torrent/storage#ClientImpl) to store data for example on S3, or in a database.
+There is support for [protocol encryption, DHT, PEX, uTP, WebTorrent, WebSeeds, BitTorrent v2, holepunching, and many more features and BEPs](https://pkg.go.dev/github.com/wchen99998/torrent). There are [several data storage backends provided](https://pkg.go.dev/github.com/wchen99998/torrent/storage): blob, file, bolt, mmap, and sqlite, to name a few. You can [write your own](https://pkg.go.dev/github.com/wchen99998/torrent/storage#ClientImpl) to store data for example on S3, or in a database.
 
 Some noteworthy package dependencies that can be used for other purposes include:
 
  * [go-libutp](https://github.com/anacrolix/go-libutp)
- * [dht](https://github.com/anacrolix/dht)
- * [bencode](https://pkg.go.dev/github.com/anacrolix/torrent/bencode)
- * [tracker](https://pkg.go.dev/github.com/anacrolix/torrent/tracker)
+ * [dht](https://github.com/wchen99998/dht)
+ * [bencode](https://pkg.go.dev/github.com/wchen99998/torrent/bencode)
+ * [tracker](https://pkg.go.dev/github.com/wchen99998/torrent/tracker)
 
 ## Changelog
 
@@ -19,11 +19,27 @@ See [CHANGELOG.md](CHANGELOG.md) for a detailed list of changes by version.
 
 ## Installation
 
-Install the library package with `go get github.com/anacrolix/torrent`, or the provided cmds with `go install github.com/anacrolix/torrent/cmd/...@latest`.
+Install the library package with `go get github.com/wchen99998/torrent`, or the provided cmds with `go install github.com/wchen99998/torrent/cmd/...@latest`. Installing by import path like this runs in Go's module-aware mode and ignores the repository's `go.work` file, so it works without checking out any git submodules.
+
+## Building from a checkout
+
+The repository includes a Go workspace (`go.work`) that adds the [`possum`](https://github.com/anacrolix/possum) storage backend. `possum` is vendored as a git submodule at `storage/possum/lib`, and the workspace references the Go module inside it (`storage/possum/lib/go`). Building from a clone of this repository (for example `go build ./...`) therefore requires the submodule to be checked out, otherwise Go fails with an error like:
+
+    cannot load module storage/possum/lib/go listed in go.work file: open storage/possum/lib/go/go.mod: no such file or directory
+
+Check out the submodules when cloning:
+
+    git clone --recurse-submodules https://github.com/wchen99998/torrent
+
+or, in an existing clone:
+
+    git submodule update --init --recursive
+
+Alternatively, disable the workspace by setting `GOWORK=off`, though the `possum` storage backend won't be available in that case.
 
 ## Library examples
 
-There are some small [examples](https://pkg.go.dev/github.com/anacrolix/torrent#pkg-examples) in the package documentation.
+There are some small [examples](https://pkg.go.dev/github.com/wchen99998/torrent#pkg-examples) in the package documentation.
 
 ## Mentions
 
@@ -110,4 +126,3 @@ torrentfs mounts a FUSE filesystem at `-mountDir`. The contents are the torrents
     $ pv mnt/ubuntu-14.04.2-desktop-amd64.iso | md5sum
     996MB 0:04:40 [3.55MB/s] [========================================>] 100%
     1b305d585b1918f297164add46784116  -
-
