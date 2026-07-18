@@ -72,6 +72,36 @@ func TestSetAnnounceInfohashParamWithSpaces(t *testing.T) {
 			"info_hash=%2Bv%0A%A1x%93%200%C8G%DC%DF%8E%AE%BFV%0A%1B%D1l"))
 }
 
+func TestSetAnnounceNumWantParam(t *testing.T) {
+	tests := []struct {
+		name    string
+		numWant int32
+		want    string
+		present bool
+	}{
+		{name: "Explicit", numWant: 200, want: "200", present: true},
+		{name: "Zero", numWant: 0, want: "0", present: true},
+		{name: "TrackerDefault", numWant: -1},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			someUrl := &url.URL{}
+			setAnnounceParams(
+				someUrl,
+				&udp.AnnounceRequest{NumWant: test.numWant},
+				AnnounceOpt{},
+			)
+
+			query := someUrl.Query()
+			qt.Check(t, qt.Equals(query.Has("numwant"), test.present))
+			if test.present {
+				qt.Check(t, qt.Equals(query.Get("numwant"), test.want))
+			}
+		})
+	}
+}
+
 // These cases cover various forms of malformed non-compact peer lists that a
 // tracker might return. Before the fix, several of these caused panics due to
 // bare type assertions on untrusted data.
