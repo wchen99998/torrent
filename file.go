@@ -43,6 +43,16 @@ func (f *File) Completed() int64 {
 	return f.BytesCompleted()
 }
 
+// VerifiedBytesCompleted returns the number of bytes in this file that belong
+// to pieces known complete by storage. Unlike BytesCompleted, it excludes
+// dirty chunks that have not passed piece verification yet.
+func (f *File) VerifiedBytesCompleted() (n int64) {
+	f.t.cl.rLock()
+	n = f.verifiedBytesCompletedLocked()
+	f.t.cl.rUnlock()
+	return
+}
+
 // WaitComplete waits until the file is complete, the context is cancelled, or
 // the torrent is closed. It does not change file or piece priorities.
 func (f *File) WaitComplete(ctx context.Context) error {
@@ -201,6 +211,18 @@ func (f *File) BytesCompleted() (n int64) {
 
 func (f *File) bytesCompletedLocked() int64 {
 	return f.length - f.bytesLeft()
+}
+
+func (f *File) verifiedBytesCompletedLocked() int64 {
+	return f.length - fileBytesLeft(
+		int64(f.t.usualPieceSize()),
+		f.BeginPieceIndex(),
+		f.EndPieceIndex(),
+		f.offset,
+		f.length,
+		&f.t._completedPieces.Bitmap,
+		func(int) int64 { return 0 },
+	)
 }
 
 func fileBytesLeft(

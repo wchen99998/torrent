@@ -13,9 +13,12 @@ type FileSnapshot struct {
 	DisplayPath string
 	Length      int64
 	Completed   int64
-	Priority    PiecePriority
-	Released    bool
-	FileInfo    metainfo.FileInfo
+	// VerifiedCompleted excludes dirty chunks that have not passed piece
+	// verification. Completed intentionally retains its historical semantics.
+	VerifiedCompleted int64
+	Priority          PiecePriority
+	Released          bool
+	FileInfo          metainfo.FileInfo
 }
 
 // PeerSnapshot is an immutable view of a peer at a point in time.
@@ -49,14 +52,15 @@ func (t *Torrent) FileSnapshots() []FileSnapshot {
 		fi.PathUtf8 = append([]string(nil), fi.PathUtf8...)
 		state, _ := f.StorageState()
 		ret = append(ret, FileSnapshot{
-			Index:       f.index,
-			Path:        f.path,
-			DisplayPath: f.displayPath,
-			Length:      f.length,
-			Completed:   f.bytesCompletedLocked(),
-			Priority:    f.prio,
-			Released:    state.Released,
-			FileInfo:    fi,
+			Index:             f.index,
+			Path:              f.path,
+			DisplayPath:       f.displayPath,
+			Length:            f.length,
+			Completed:         f.bytesCompletedLocked(),
+			VerifiedCompleted: f.verifiedBytesCompletedLocked(),
+			Priority:          f.prio,
+			Released:          state.Released,
+			FileInfo:          fi,
 		})
 	}
 	return ret

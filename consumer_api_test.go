@@ -102,7 +102,9 @@ func TestFileIndexCompletedAndSnapshots(t *testing.T) {
 	assert.Equal(t, 0, files[0].Index())
 	assert.Equal(t, 1, files[1].Index())
 	assert.EqualValues(t, 2, files[0].Completed())
+	assert.EqualValues(t, 2, files[0].VerifiedBytesCompleted())
 	assert.EqualValues(t, 0, files[1].Completed())
+	assert.EqualValues(t, 0, files[1].VerifiedBytesCompleted())
 
 	snapshots := tor.FileSnapshots()
 	require.Len(t, snapshots, 2)
@@ -111,11 +113,39 @@ func TestFileIndexCompletedAndSnapshots(t *testing.T) {
 	assert.Equal(t, "a.bin", snapshots[0].DisplayPath)
 	assert.EqualValues(t, 2, snapshots[0].Length)
 	assert.EqualValues(t, 2, snapshots[0].Completed)
+	assert.EqualValues(t, 2, snapshots[0].VerifiedCompleted)
 	assert.Equal(t, 1, snapshots[1].Index)
 	assert.EqualValues(t, 0, snapshots[1].Completed)
+	assert.EqualValues(t, 0, snapshots[1].VerifiedCompleted)
 
 	snapshots[0].FileInfo.Path[0] = "mutated"
 	assert.Equal(t, "a.bin", tor.FileSnapshots()[0].FileInfo.Path[0])
+}
+
+func TestVerifiedFileProgressExcludesDirtyUnverifiedChunks(t *testing.T) {
+	_, tor := newConsumerAPITestTorrent(t, &metainfo.Info{
+		Name:        "payload",
+		Length:      4,
+		PieceLength: 4,
+		Pieces:      make([]byte, metainfo.HashSize),
+	})
+	tor.cl.lock()
+	for chunk := chunkIndexType(0); chunk < tor.piece(0).numChunks(); chunk++ {
+		tor.piece(0).unpendChunkIndex(chunk)
+	}
+	tor.cl.unlock()
+
+	file := tor.Files()[0]
+	assert.EqualValues(t, file.Length(), file.BytesCompleted())
+	assert.EqualValues(t, 0, file.VerifiedBytesCompleted())
+	snapshot := tor.FileSnapshots()[0]
+	assert.EqualValues(t, snapshot.Length, snapshot.Completed)
+	assert.EqualValues(t, 0, snapshot.VerifiedCompleted)
+
+	completePiece(t, tor, 0, []byte("data"))
+	assert.EqualValues(t, file.Length(), file.VerifiedBytesCompleted())
+	snapshot = tor.FileSnapshots()[0]
+	assert.EqualValues(t, snapshot.Length, snapshot.VerifiedCompleted)
 }
 
 func TestWaitInfo(t *testing.T) {
